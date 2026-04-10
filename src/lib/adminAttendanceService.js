@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { KAMPOS } from '../constants/kampos'
 
 /**
  * Fetch all attendance records between two ISO date strings (inclusive),
@@ -33,4 +34,25 @@ export async function fetchAttendanceByDateAllKampos(dateISO) {
 
   if (error) throw error
   return data || []
+}
+
+/**
+ * Fetch Total Registered Members (TRM) per kampo.
+ * Returns an object keyed by kampo_id: { shiloh: 12, tagum: 8, … }
+ */
+export async function fetchMemberCountsAllKampos() {
+  const { data, error } = await supabase
+    .from('members')
+    .select('kampo_id')
+
+  if (error) throw error
+
+  const counts = {}
+  KAMPOS.forEach(k => { counts[k.id] = 0 })
+  ;(data || []).forEach(row => {
+    if (row.kampo_id && counts[row.kampo_id] !== undefined) {
+      counts[row.kampo_id]++
+    }
+  })
+  return counts
 }

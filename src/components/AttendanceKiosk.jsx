@@ -168,7 +168,7 @@ export default function AttendanceKiosk({
               </p>
 
               {/* Live counters */}
-              <div className="mt-4 grid grid-cols-4 gap-2 text-center text-xs sm:text-sm">
+              <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-2 text-center text-xs sm:text-sm">
                 <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
                   <div className="text-slate-500">Total today</div>
                   <div className="text-lg sm:text-xl font-extrabold text-slate-900">
@@ -191,6 +191,12 @@ export default function AttendanceKiosk({
                   <div className="text-slate-500">SVJ</div>
                   <div className="text-lg sm:text-xl font-extrabold text-slate-900">
                     {isLoading ? '…' : quickTotals.svj}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-3 py-2 col-span-3 sm:col-span-1">
+                  <div className="text-violet-600 font-semibold">TRM</div>
+                  <div className="text-lg sm:text-xl font-extrabold text-violet-700">
+                    {membersLoading ? '…' : members.length}
                   </div>
                 </div>
               </div>
