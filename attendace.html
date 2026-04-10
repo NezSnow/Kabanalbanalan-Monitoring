@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+  <title>Church Attendance Kiosk</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <link href="https://fonts.googleapis.com" rel="preconnect"/>
+  <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#D4AF37',   // gold
+            brand: '#D4AF37',     // keep compatibility with existing brand classes
+            secondary: '#991B1B', // red (deep)
+            danger: '#DC2626',    // red (bright)
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
+          borderRadius: {
+            'custom': '8px',
+          }
+        }
+      }
+    }
+  </script>
+  <style data-purpose="custom-animations">
+    body { -webkit-tap-highlight-color: transparent; }
+    @keyframes scaleIn { from { transform: scale(0.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .animate-scale-in { animation: scaleIn 0.2s ease-out forwards; }
+    .success-icon-animation { animation: bounce 2s infinite; }
+    @keyframes bounce {
+      0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+      40% {transform: translateY(-10px);}
+      60% {transform: translateY(-5px);}
+    }
+    .saturate-theme { filter: saturate(3); }
+
+    /* React + Tailwind friendly micro-animations for a less "dull" hero */
+    @keyframes shimmer {
+      0% { transform: translateX(-120%); opacity: 0; }
+      20% { opacity: 0.9; }
+      60% { opacity: 0.9; }
+      100% { transform: translateX(120%); opacity: 0; }
+    }
+    .hero-shimmer::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(212,175,55,0.35), transparent);
+      transform: translateX(-120%);
+      animation: shimmer 2.6s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    @keyframes floatIn {
+      from { transform: translateY(10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .animate-float-in { animation: floatIn 450ms cubic-bezier(.2,.8,.2,1) both; }
+  </style>
+</head>
+<body class="bg-white font-sans antialiased text-slate-900 min-h-screen flex flex-col overflow-x-hidden">
+
+<div id="root"></div>
+
+<!-- React (CDN) + Babel so you can run React + Tailwind without a build step -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-purpose="react-app">
+  const { useEffect, useMemo, useState } = React;
+
+  const STORAGE_KEYS = {
+    members: "kaban_members_v1",
+    attendance: "kaban_attendance_v1",
+  };
+
+  const DEFAULT_MEMBERS = [
+    // Mock spiritual names so the new tile format is visible immediately.
+    { name: "Argie Lasanday", spiritualName: "Aaron", short: "Aaron", gender: "male", isVisitor: false, img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBAo-E2_ZzeaQlN9UjxqD2auo5yPURL_NEF-QJWybIQnuH5UxvvHhUzlrJ2EeMtnq4YdguW34hAdfAnOJrIBBOHZCbWAnkzzEdRN1scEk5NgdT4YDkfKBQKnVq4_flonU8LXqx7136N0DsRQZj-j6tj1-K7he4gDHMM0TVVfeZK4I5_8cgad6CyaZH4Q1rkJ-HXodJep8hTZfx41UBi_S3GeO9LkxsaoZDyrcF0TmQ7LbWEO_QLFuZCyPcd1c8fwjkUMNRv8vaXUAE" },
+    { name: "Sarah Williams", spiritualName: "Sharon", short: "Sharon", gender: "female", isVisitor: false, img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAZromZFSd9yiailThjHE8HRwnQFiEffbyJkotgJ_xuCI1k9TfqMg__mJOEc7Aig4WdiOxGC3lb_t7YJq8qGyKQFcC5nmW-pa0IIe4zGLRh-FzCfDQOTUnpZAbBOkx028fem7sFIvSPCiWZH_etazI_uiV3j9rPLtlvy79zj1Gtk3UA-fEDGPoNY6FSsOpE96hGfJjEswR9QU4tLCHA4uUduZCyHVNp2MB9Q2tBdMSDk5WY--HF7HPflcGlMkOREjD_CrD8DciCZgE" },
+    { name: "Michael Reyes", spiritualName: "Mikael", short: "Mikael", gender: "male", isVisitor: false, img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAnZ5QHl0Yf8DJT_herMoKeLCmihFJNYovpTfexr2Lh8CzLdRrmqjS_9HeTWLIAid1vYAg-3QegzHLI4boFeR0AXL3Fr6HzCeADwJyW6HT8zN7XWTwqAVf9Wcf-XpXi035RMe9raCmmGgaoexRruh-4GP5JhDBn6Wi_rAbEgkug0pIWZ8QrXyCFA-fYcgFcgT4MxzPbw5xiHtVGnbcfv_rdTj8YynDY6S2liyvGVkE8XpwelnxGZPqZyABDpCi8-fPLHE1xT6RDblA" },
+    { name: "Elena Garcia", spiritualName: "Ely", short: "Ely", gender: "female", isVisitor: false, img: "https://lh3.googleusercontent.com/aida-public/AB6AXuAH_Zu5VQ33PVavn3mVDq2vkHBDkduJhjg8LRv9EFrlbjSzoR7iEHztRslXOW7a-2OVQXsDomE2KFpQ5VBy82JRT0uPoPIu5nbZxfL96W26_SLd_4hfVhJRb968-GqpIy7b5y8_HeA4QnBd5NeKjJDFA5u7_rfQYTtZHaA-lVv1rjyNJT0FDfg3NY3BrwJv1xfIbBcap6hyW3jcqRHVjplzHCGfvsRHDIhRexA1ukibscBf1RuHZnhb43_20M8Vb5PYwFZ7MYkGrxk" },
+    { name: "David Kim", spiritualName: "Davi", short: "Davi", gender: "male", isVisitor: false, img: "https://lh3.googleusercontent.com/aida-public/AB6AXuBY5ylyVFomyIPRdQL5xPlHc3mz3s9C3YDXuGRjS5GGNjBsd_G9vKjpLqW7b_iN6Pp7UuyRTx6ZWR5ffSmLcUgPIExbG7mvK6UIRBcmpWAC_-6bAapT49AaJP9NTU-x6Chj6irpLqPqkJBWriK6SYp9c1SuG4akfPej46DAJLk-E7XsX7kWwOwmpJjQAK9qhPhJ5e_AuS66i4D8CSq-4IK30sFYGp8osnU3c6-wufwut5dfu2meg3NWJy8cg0RbzTcRiPQ4bt_ljGc", hideOnMobile: true },
+    // Additional members (10)
+    { name: "Aaron Cruz", spiritualName: "Aaron", short: "Aaron", gender: "male", isVisitor: false, img: "https://i.pravatar.cc/160?img=12" },
+    { name: "Abigail Santos", short: "Abigail S.", gender: "female", isVisitor: false, img: "https://i.pravatar.cc/160?img=32" },
+    { name: "Daniel Aquino", short: "Daniel A.", gender: "male", isVisitor: false, img: "https://i.pravatar.cc/160?img=15" },
+    { name: "Ethan Bautista", short: "Ethan B.", gender: "male", isVisitor: false, img: "https://i.pravatar.cc/160?img=18" },
+    { name: "Hannah Flores", short: "Hannah F.", gender: "female", isVisitor: false, img: "https://i.pravatar.cc/160?img=45" },
+    { name: "Joshua Mendoza", short: "Joshua M.", gender: "male", isVisitor: false, img: "https://i.pravatar.cc/160?img=21" },
+    { name: "Leah Navarro", short: "Leah N.", gender: "female", isVisitor: false, img: "https://i.pravatar.cc/160?img=47" },
+    { name: "Noah Ortega", short: "Noah O.", gender: "male", isVisitor: false, img: "https://i.pravatar.cc/160?img=27" },
+    { name: "Olivia Perez", short: "Olivia P.", gender: "female", isVisitor: false, img: "https://i.pravatar.cc/160?img=48" },
+    { name: "Sophia Rivera", short: "Sophia R.", gender: "female", isVisitor: false, img: "https://i.pravatar.cc/160?img=49" },
+  ];
+
+  function safeParseJSON(str, fallback) {
+    try { return JSON.parse(str); } catch { return fallback; }
+  }
+
+  function uid() {
+    return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function toISODate(d) {
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  function initialsShortName(fullName) {
+    const parts = String(fullName || "").trim().split(/\\s+/).filter(Boolean);
+    if (!parts.length) return "";
+    const first = parts[0];
+    const last = parts.length > 1 ? parts[parts.length - 1] : "";
+    return last ? `${first} ${last[0].toUpperCase()}.` : first;
+  }
+
+  function spiritualDisplayName(member) {
+    const realName = String(member?.name || "").trim();
+    if (!realName) return "";
+    const spiritual = String(member?.spiritualName || "").trim();
+    const gender = (member?.gender || "").toLowerCase();
+    const prefix = gender === "male" ? "Bro." : gender === "female" ? "Sis." : "";
+
+    if (!spiritual) return prefix ? `${prefix} ${realName}` : realName;
+    const base = `${spiritual} (${realName})`;
+    return prefix ? `${prefix} ${base}` : base;
+  }
+
+  function spiritualTileLines(member) {
+    const realName = String(member?.name || "").trim();
+    const spiritual = String(member?.spiritualName || "").trim();
+    const gender = (member?.gender || "").toLowerCase();
+    const prefix = gender === "male" ? "Bro." : gender === "female" ? "Sis." : "";
+
+    const topName = spiritual || realName;
+    const top = topName ? (prefix ? `${prefix} ${topName}` : topName) : "";
+    const bottom = spiritual && realName ? realName : "";
+    return { top, bottom };
+  }
+
+  function displayName(member) {
+    return spiritualDisplayName(member);
+  }
+
+  function formatHeaderTime(date) {
+    const options = { weekday: 'long', hour: '2-digit', minute: '2-digit' };
+    return date.toLocaleTimeString('en-US', options);
+  }
+
+  function formatTimestamp(date) {
+    const options = { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return date.toLocaleDateString('en-US', options);
+  }
+
+  function App() {
+    const [activeTab, setActiveTab] = useState("attendance"); // attendance | manage | monitoring
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    // Desktop sidebar collapse state (mobile uses `sidebarOpen`).
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+
+    const [now, setNow] = useState(() => new Date());
+    const [worshipDate, setWorshipDate] = useState(() => toISODate(new Date()));
+
+    const [members, setMembers] = useState(() => {
+      const stored = safeParseJSON(localStorage.getItem(STORAGE_KEYS.members), null);
+      if (Array.isArray(stored) && stored.length) {
+        const DEMO_KEY = "kaban_spiritual_demo_applied_v1";
+        const shouldApplyDemo = !localStorage.getItem(DEMO_KEY) && stored.every(m => !String(m?.spiritualName || "").trim());
+        const demoNames = ["Paul", "Aaron", "Mikael", "Ely", "Davi", "Sharon", "Noah", "Olivia"];
+
+        const migrated = stored.map((m, idx) => {
+          const real = String(m?.name || "").trim();
+          const existingSpiritual = String(m?.spiritualName || "").trim();
+          const spiritualName = shouldApplyDemo ? (existingSpiritual || (real ? demoNames[idx % demoNames.length] : "")) : (existingSpiritual || "");
+          return {
+            ...m,
+            spiritualName,
+            short: m?.short || initialsShortName(spiritualName || real),
+          };
+        });
+        if (shouldApplyDemo) {
+          localStorage.setItem(DEMO_KEY, "1");
+          localStorage.setItem(STORAGE_KEYS.members, JSON.stringify(migrated));
+        }
+        return migrated;
+      }
+      const seeded = DEFAULT_MEMBERS.map(m => ({
+        id: uid(),
+        ...m,
+        spiritualName: m?.spiritualName ?? "",
+        short: m.short || initialsShortName(m?.spiritualName || m?.name),
+      }));
+      localStorage.setItem(STORAGE_KEYS.members, JSON.stringify(seeded));
+      return seeded;
+    });
+
+    const [attendance, setAttendance] = useState(() => {
+      const stored = safeParseJSON(localStorage.getItem(STORAGE_KEYS.attendance), []);
+      return Array.isArray(stored) ? stored : [];
+    });
+
+    // kiosk UI state
+    const [selectedMemberId, setSelectedMemberId] = useState(null);
+    const [memberSearch, setMemberSearch] = useState("");
+    const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
+    const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+    const [attendanceType, setAttendanceType] = useState("Face to Face");
+    const [timestamp, setTimestamp] = useState("");
+    const [successTimerId, setSuccessTimerId] = useState(null);
+
+    // secretary UI state
+    const [manageQuery, setManageQuery] = useState("");
+    const [editingMember, setEditingMember] = useState(null);
+    const [manageForm, setManageForm] = useState({ name: "", spiritualName: "", gender: "male", isVisitor: false, img: "" });
+
+    const [monitorDate, setMonitorDate] = useState(() => toISODate(new Date()));
+    const [monitorView, setMonitorView] = useState("cards"); // cards | names
+
+    useEffect(() => {
+      const id = setInterval(() => setNow(new Date()), 60000);
+      return () => clearInterval(id);
+    }, []);
+
+    useEffect(() => {
+      localStorage.setItem(STORAGE_KEYS.members, JSON.stringify(members));
+    }, [members]);
+
+    useEffect(() => {
+      localStorage.setItem(STORAGE_KEYS.attendance, JSON.stringify(attendance));
+    }, [attendance]);
+
+    const selectedMember = useMemo(() => members.find(m => m.id === selectedMemberId) || null, [members, selectedMemberId]);
+
+    const sortedMembers = useMemo(() => {
+      return [...members].sort((a, b) =>
+        (a.name || "").localeCompare((b.name || ""), undefined, { sensitivity: "base" })
+      );
+    }, [members]);
+
+    const attendedIdsForWorshipDate = useMemo(() => {
+      const set = new Set();
+      attendance.forEach(r => {
+        if (r?.dateISO === worshipDate && r?.memberId) set.add(r.memberId);
+      });
+      return set;
+    }, [attendance, worshipDate]);
+
+    const attendanceQuickTotals = useMemo(() => {
+      let overall = 0;
+      let ftf = 0;
+      let online = 0;
+      attendance.forEach(r => {
+        if (r?.dateISO !== worshipDate) return;
+        overall += 1;
+        if (r.joinType === "Face to Face") ftf += 1;
+        else if (r.joinType === "Online") online += 1;
+      });
+      return { overall, ftf, online };
+    }, [attendance, worshipDate]);
+
+    const filteredKioskMembers = useMemo(() => {
+      const q = String(memberSearch || "").trim().toLowerCase();
+      const base = sortedMembers.filter(m => {
+        if (!q) return true;
+        const real = String(m?.name || "").toLowerCase();
+        const spiritual = String(m?.spiritualName || "").toLowerCase();
+        return real.includes(q) || spiritual.includes(q);
+      });
+      // Unattended first, then already-attended
+      return base.sort((a, b) => {
+        const aAtt = attendedIdsForWorshipDate.has(a.id);
+        const bAtt = attendedIdsForWorshipDate.has(b.id);
+        if (aAtt === bAtt) return 0;
+        return aAtt ? 1 : -1;
+      });
+    }, [sortedMembers, memberSearch, attendedIdsForWorshipDate]);
+
+    const kioskSuggestions = useMemo(() => {
+      const q = String(memberSearch || "").trim().toLowerCase();
+      if (!q) return [];
+      return sortedMembers
+        .filter(m => {
+          const real = String(m?.name || "").toLowerCase();
+          const spiritual = String(m?.spiritualName || "").toLowerCase();
+          return real.includes(q) || spiritual.includes(q);
+        })
+        .slice(0, 8);
+    }, [sortedMembers, memberSearch]);
+
+    const canConfirm = !!selectedMemberId && !attendedIdsForWorshipDate.has(selectedMemberId);
+
+    function resetKiosk() {
+      setIsJoinModalOpen(false);
+      setIsSuccessOpen(false);
+      if (successTimerId) window.clearTimeout(successTimerId);
+      setAttendanceType("Face to Face");
+      setTimestamp("");
+      setMemberSearch("");
+      setSelectedMemberId(null);
+    }
+
+    function navTo(tab) {
+      setActiveTab(tab);
+      setSidebarOpen(false);
+      resetKiosk();
+    }
+
+    function confirmAttendance() {
+      if (!canConfirm) return;
+      setIsJoinModalOpen(true);
+    }
+
+    function handleTypePick(type) {
+      setAttendanceType(type);
+      setTimestamp(formatTimestamp(new Date()));
+      setIsJoinModalOpen(false);
+
+      if (selectedMember) {
+        const record = {
+          id: uid(),
+          dateISO: worshipDate,
+          createdAt: new Date().toISOString(),
+          joinType: type, // Online | Face to Face
+          memberId: selectedMember.id,
+          memberName: selectedMember.name,
+          memberShort: selectedMember.short,
+          gender: selectedMember.gender,
+          isVisitor: !!selectedMember.isVisitor,
+          img: selectedMember.img || "",
+        };
+        setAttendance(prev => [record, ...prev]);
+      }
+
+      setIsSuccessOpen(true);
+      if (successTimerId) window.clearTimeout(successTimerId);
+      const tid = window.setTimeout(() => {
+        setIsSuccessOpen(false);
+        setAttendanceType("Face to Face");
+        setTimestamp("");
+        setSelectedMemberId(null);
+      }, 3500);
+      setSuccessTimerId(tid);
+    }
+
+    function startAddMember() {
+      setEditingMember(null);
+      setManageForm({ name: "", spiritualName: "", gender: "male", isVisitor: false, img: "" });
+    }
+
+    function startEditMember(m) {
+      setEditingMember(m);
+      setManageForm({
+        name: m.name || "",
+        spiritualName: m.spiritualName || "",
+        gender: m.gender || "male",
+        isVisitor: !!m.isVisitor,
+        img: m.img || ""
+      });
+    }
+
+    function saveMember() {
+      const name = String(manageForm.name || "").trim();
+      if (!name) return;
+      const spiritualName = String(manageForm.spiritualName || "").trim();
+      const gender = manageForm.gender === "female" ? "female" : "male";
+      const isVisitor = !!manageForm.isVisitor;
+      const img = String(manageForm.img || "").trim();
+      const short = initialsShortName(name);
+
+      if (editingMember) {
+        setMembers(prev => prev.map(m => m.id === editingMember.id ? ({ ...m, name, spiritualName, gender, isVisitor, img, short }) : m));
+        setEditingMember(null);
+      } else {
+        setMembers(prev => [{ id: uid(), name, spiritualName, gender, isVisitor, img, short }, ...prev]);
+      }
+      setManageForm({ name: "", spiritualName: "", gender: "male", isVisitor: false, img: "" });
+    }
+
+    function deleteMember(m) {
+      if (!window.confirm(`Remove ${m.name}?`)) return;
+      setMembers(prev => prev.filter(x => x.id !== m.id));
+      if (selectedMemberId === m.id) setSelectedMemberId(null);
+    }
+
+    const filteredManageMembers = useMemo(() => {
+      const q = String(manageQuery || "").trim().toLowerCase();
+      const base = [...members].sort((a, b) => (a.name || "").localeCompare((b.name || ""), undefined, { sensitivity: "base" }));
+      if (!q) return base;
+      return base.filter(m => (m.name || "").toLowerCase().includes(q));
+    }, [members, manageQuery]);
+
+    const monitorRecords = useMemo(() => attendance.filter(r => r.dateISO === monitorDate), [attendance, monitorDate]);
+
+    const monitorTotals = useMemo(() => {
+      const overall = monitorRecords.length;
+      const ftf = monitorRecords.filter(r => r.joinType === "Face to Face").length;
+      const online = monitorRecords.filter(r => r.joinType === "Online").length;
+      const visitors = monitorRecords.filter(r => r.isVisitor).length;
+      return { overall, ftf, online, visitors };
+    }, [monitorRecords]);
+
+    // Mobile should remain expanded; only the `lg` sidebar becomes minimized.
+    const sidebarWidthClass = sidebarCollapsed ? "w-72 lg:w-20" : "w-72 lg:w-72";
+    // Sidebar becomes `lg:static`, so the flex layout already reserves space.
+    // We only need to offset the fixed footer, not the main content.
+    const sidebarMainOffsetClass = "";
+    const sidebarLeftClass = sidebarCollapsed ? "lg:left-20" : "lg:left-72";
+
+    return (
+      <div className="h-screen overflow-hidden bg-white text-slate-900">
+        {/* Mobile top bar */}
+        <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-slate-200">
+          <div className="px-3 py-2 flex items-center justify-between">
+            <button type="button" className="p-2 rounded-lg border border-slate-200" onClick={() => setSidebarOpen(s => !s)}>
+              <span className="sr-only">Toggle menu</span>
+              <div className="w-5 h-5 grid gap-1">
+                <span className="block h-0.5 bg-slate-700"></span>
+                <span className="block h-0.5 bg-slate-700"></span>
+                <span className="block h-0.5 bg-slate-700"></span>
+              </div>
+            </button>
+            <div className="text-sm font-semibold">Church Attendance</div>
+            <div className="text-xs text-slate-500">{formatHeaderTime(now)}</div>
+          </div>
+        </div>
+
+        <div className="flex h-full">
+          {/* Sidebar */}
+          <aside className={[
+            `${sidebarWidthClass} shrink-0 border-r border-slate-200 bg-white`,
+            "fixed lg:sticky lg:top-0 lg:h-screen lg:self-start inset-y-0 left-0 z-30",
+            sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+            "transition-transform duration-200",
+            "overflow-y-auto"
+          ].join(" ")}>
+            <div className="p-4 border-b border-slate-200">
+              <div className="flex items-start justify-between gap-2">
+                <div className={sidebarCollapsed ? "flex items-center gap-2 lg:gap-0" : "flex items-center gap-2"}>
+                  <div className="w-6 h-6 bg-primary rounded-[6px] flex items-center justify-center text-white shadow-sm">
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"></path>
+                    </svg>
+                  </div>
+                  <button
+                    type="button"
+                    className={[
+                      "hidden lg:inline-flex",
+                      "p-1.5 rounded-lg border border-slate-200 bg-white shadow-sm",
+                      "hover:bg-slate-50 active:bg-slate-100 transition",
+                      // Only show in expanded header space; when collapsed we keep it tight next to logo.
+                      sidebarCollapsed ? "lg:ml-1" : "",
+                    ].join(" ")}
+                    onClick={() => setSidebarCollapsed(v => !v)}
+                    aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                  >
+                    {sidebarCollapsed ? (
+                      <svg className="h-4 w-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                    ) : (
+                      <svg className="h-4 w-4 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className={sidebarCollapsed ? "min-w-0 lg:hidden" : "min-w-0"}>
+                    <div className="font-bold truncate">Grace Community</div>
+                    <div className="text-xs text-slate-500 truncate">Kabanalbanalan Monitoring</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <nav className="p-3 space-y-2">
+              <button type="button" onClick={() => navTo("attendance")} className={[
+                "w-full py-2 rounded-lg border transition",
+                sidebarCollapsed ? "px-3 lg:px-2" : "px-3",
+                activeTab === "attendance" ? "bg-primary/10 border-primary/30 text-slate-900" : "bg-white border-slate-200 hover:bg-slate-50"
+              ].join(" ")}>
+                <div className={sidebarCollapsed ? "flex items-center gap-3 lg:justify-center lg:gap-0" : "flex items-center gap-3"}>
+                  <div className={[
+                    "shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border",
+                    activeTab === "attendance" ? "bg-primary text-white border-primary" : "bg-primary/10 text-primary border-primary/20",
+                  ].join(" ")}>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 11l3 3L22 4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3" />
+                    </svg>
+                  </div>
+                  <div className={sidebarCollapsed ? "min-w-0 lg:hidden" : "min-w-0"}>
+                    <div className="font-semibold">Attendance</div>
+                    <div className="text-xs text-slate-500">Kiosk check-in</div>
+                  </div>
+                </div>
+              </button>
+              <button type="button" onClick={() => navTo("manage")} className={[
+                "w-full py-2 rounded-lg border transition",
+                sidebarCollapsed ? "px-3 lg:px-2" : "px-3",
+                activeTab === "manage" ? "bg-primary/10 border-primary/30 text-slate-900" : "bg-white border-slate-200 hover:bg-slate-50"
+              ].join(" ")}>
+                <div className={sidebarCollapsed ? "flex items-center gap-3 lg:justify-center lg:gap-0" : "flex items-center gap-3"}>
+                  <div className={[
+                    "shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border",
+                    activeTab === "manage" ? "bg-primary text-white border-primary" : "bg-primary/10 text-primary border-primary/20",
+                  ].join(" ")}>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 3l4 4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-6 6" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 9l-1 1" />
+                    </svg>
+                  </div>
+                  <div className={sidebarCollapsed ? "min-w-0 lg:hidden" : "min-w-0"}>
+                    <div className="font-semibold">Manage Kapatid</div>
+                    <div className="text-xs text-slate-500">Add / Edit / Remove</div>
+                  </div>
+                </div>
+              </button>
+              <button type="button" onClick={() => navTo("monitoring")} className={[
+                "w-full py-2 rounded-lg border transition",
+                sidebarCollapsed ? "px-3 lg:px-2" : "px-3",
+                activeTab === "monitoring" ? "bg-primary/10 border-primary/30 text-slate-900" : "bg-white border-slate-200 hover:bg-slate-50"
+              ].join(" ")}>
+                <div className={sidebarCollapsed ? "flex items-center gap-3 lg:justify-center lg:gap-0" : "flex items-center gap-3"}>
+                  <div className={[
+                    "shrink-0 w-8 h-8 rounded-lg flex items-center justify-center border",
+                    activeTab === "monitoring" ? "bg-primary text-white border-primary" : "bg-primary/10 text-primary border-primary/20",
+                  ].join(" ")}>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3v18h18" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 14l2-2 3 3 5-7 3 3" />
+                    </svg>
+                  </div>
+                  <div className={sidebarCollapsed ? "min-w-0 lg:hidden" : "min-w-0"}>
+                    <div className="font-semibold">Monitoring</div>
+                    <div className="text-xs text-slate-500">Totals & breakdown</div>
+                  </div>
+                </div>
+              </button>
+            </nav>
+
+            {sidebarCollapsed ? (
+              <>
+                <div className="p-3 border-t border-slate-200 text-xs text-slate-500 lg:hidden">
+                  <div className="flex items-center justify-between">
+                    <span>Now</span>
+                    <span className="font-medium text-slate-700">{formatHeaderTime(now)}</span>
+                  </div>
+                </div>
+                <div className="p-3 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-center hidden lg:flex">
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                  </svg>
+                </div>
+              </>
+            ) : (
+              <div className="p-3 border-t border-slate-200 text-xs text-slate-500">
+                <div className="flex items-center justify-between">
+                  <span>Now</span>
+                  <span className="font-medium text-slate-700">{formatHeaderTime(now)}</span>
+                </div>
+              </div>
+            )}
+          </aside>
+
+          {sidebarOpen && (
+            <div className="fixed inset-0 bg-black/40 z-20 lg:hidden" onClick={() => setSidebarOpen(false)}></div>
+          )}
+
+          {/* Main content */}
+          <div className={`flex-1 min-w-0 h-full overflow-y-auto ${sidebarMainOffsetClass}`}>
+            <header className="hidden lg:block bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-bold">
+                    {activeTab === "attendance" ? "Kabanalbanalan Attendance" : activeTab === "manage" ? "Manage Kapatid" : "Monitoring"}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-medium">{formatHeaderTime(now)}</div>
+                  <div className="text-xs text-slate-400">Main Sanctuary</div>
+                </div>
+              </div>
+            </header>
+
+            {activeTab === "attendance" && (
+              <div className="min-h-full flex flex-col">
+                <div className="px-3 sm:px-6 pt-4 sm:pt-6">
+                  <div className="max-w-5xl mx-auto">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
+                      <div className="text-sm text-slate-600">Worship date:</div>
+                      <input
+                        type="date"
+                        value={worshipDate}
+                        onChange={(e) => setWorshipDate(e.target.value)}
+                        className="w-full sm:w-auto rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <main className="px-3 sm:px-6 pb-10 flex-1">
+                  <div className="max-w-5xl mx-auto flex flex-col gap-4 sm:gap-6">
+                    <section className="relative overflow-hidden bg-white rounded-custom border border-slate-200 p-4 sm:p-6 shadow-sm animate-float-in">
+                      <div className="absolute inset-0 hero-shimmer opacity-80"></div>
+                      <div className="relative">
+                        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                          <span className="bg-gradient-to-r from-secondary via-slate-900 to-secondary bg-clip-text text-transparent drop-shadow-[0_1px_0_rgba(0,0,0,0.06)]">
+                            Shalom Kapatid!
+                          </span>
+                        </h2>
+                        <div className="mt-2 h-1 w-24 sm:w-28 rounded-full bg-primary shadow-[0_0_22px_rgba(212,175,55,0.35)]"></div>
+                        <p className="mt-3 text-slate-600 text-base sm:text-lg">Please select your name for attendance</p>
+                        <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs sm:text-sm">
+                          <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
+                            <div className="text-slate-500">Total today</div>
+                            <div className="text-lg sm:text-xl font-extrabold text-slate-900">{attendanceQuickTotals.overall}</div>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
+                            <div className="text-slate-500">Face to Face</div>
+                            <div className="text-lg sm:text-xl font-extrabold text-slate-900">{attendanceQuickTotals.ftf}</div>
+                          </div>
+                          <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
+                            <div className="text-slate-500">Online</div>
+                            <div className="text-lg sm:text-xl font-extrabold text-slate-900">{attendanceQuickTotals.online}</div>
+                          </div>
+                        </div>
+                        {selectedMember ? (
+                          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-secondary/15 bg-primary/10 px-3 py-1 text-sm text-slate-800">
+                            <span className="h-2 w-2 rounded-full bg-secondary"></span>
+                            Selected: <span className="font-semibold">{displayName(selectedMember)}</span>
+                            {selectedMember.isVisitor && <span className="ml-2 text-xs text-secondary font-semibold">(Visitor)</span>}
+                          </div>
+                        ) : (
+                          <p className="mt-4 text-sm text-slate-500">
+                            Tap your tile below to enable <span className="font-semibold">Confirm Attendance</span>.
+                          </p>
+                        )}
+                      </div>
+                    </section>
+
+                    <section>
+                      <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-3 sm:mb-4">Select Member</h3>
+                      <div className="mb-3 sm:mb-4">
+                        <div className="relative">
+                          <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14z" />
+                          </svg>
+                          <input
+                            value={memberSearch}
+                            onChange={(e) => setMemberSearch(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && kioskSuggestions.length) {
+                                e.preventDefault();
+                                setSelectedMemberId(kioskSuggestions[0].id);
+                              }
+                            }}
+                            placeholder="Search member name…"
+                            className="w-full rounded-lg border border-slate-200 pl-10 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
+                          />
+
+                          {!!kioskSuggestions.length && String(memberSearch || "").trim() && (
+                            <div className="absolute z-20 mt-2 w-full rounded-lg border border-slate-200 bg-white shadow-lg overflow-hidden">
+                              <div className="max-h-64 overflow-auto">
+                                {kioskSuggestions.map((m) => (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 hover:bg-slate-50 active:bg-slate-100 flex items-center gap-3"
+                                    onClick={() => setSelectedMemberId(m.id)}
+                                  >
+                                    <img
+                                      src={m.img || "https://i.pravatar.cc/160?u=" + encodeURIComponent(m.id)}
+                                      alt={m.short || initialsShortName(m.name)}
+                                      className="w-8 h-8 rounded-full object-cover border border-slate-200"
+                                    />
+                                    <div className="min-w-0">
+                                      <div className="text-sm font-extrabold text-slate-900 truncate">{spiritualTileLines(m).top}</div>
+                                      {!!spiritualTileLines(m).bottom && (
+                                        <div className="text-[11px] text-slate-500 truncate">{spiritualTileLines(m).bottom}</div>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                        {filteredKioskMembers.map((m) => {
+                          const isSelected = selectedMemberId === m.id;
+                          const isAttended = attendedIdsForWorshipDate.has(m.id);
+                          const hide = m.hideOnMobile ? "hidden sm:flex" : "flex";
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              disabled={isAttended}
+                              onClick={() => setSelectedMemberId(m.id)}
+                              className={[
+                                hide,
+                                "relative border rounded-custom p-3 sm:p-4 flex-col items-center text-center transition",
+                                "hover:shadow-sm active:scale-[0.99]",
+                                isAttended
+                                  ? "bg-primary/15 border-primary text-slate-700 opacity-90 cursor-not-allowed"
+                                  : "bg-white border-slate-200 hover:border-primary/60",
+                                !isAttended && isSelected ? "border-primary ring-2 ring-primary/40" : "",
+                                isAttended ? "hover:shadow-none active:scale-100" : "",
+                              ].join(" ")}
+                            >
+                              <img alt={m.short} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full mb-3 object-cover" src={m.img || "https://i.pravatar.cc/160?u=" + encodeURIComponent(m.id)} />
+                              <div className="w-full flex flex-col items-center">
+                                <div className="font-extrabold text-slate-900 text-base sm:text-lg leading-tight">
+                                  {spiritualTileLines(m).top}
+                                </div>
+                                {!!spiritualTileLines(m).bottom && (
+                                  <>
+                                    <div className="mt-2 mb-2 h-px w-16 sm:w-20 bg-slate-900/70"></div>
+                                    <div className="tracking-wide text-[11px] sm:text-xs text-slate-700">
+                                      {spiritualTileLines(m).bottom}
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                              {m.isVisitor && !isAttended && <span className="mt-1 text-[10px] font-semibold text-secondary">VISITOR</span>}
+                              {isAttended ? (
+                                <span className="absolute -top-2 -right-2 bg-primary text-white px-2 py-0.5 rounded-full text-[10px] font-bold shadow">DONE</span>
+                              ) : isSelected ? (
+                                <span className="absolute -top-2 -right-2 bg-secondary text-white p-1 rounded-full shadow">
+                                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                    <path clipRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fillRule="evenodd"></path>
+                                  </svg>
+                                </span>
+                              ) : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {!filteredKioskMembers.length && (
+                        <div className="mt-4 text-sm text-slate-500 text-center">
+                          No members found for “{memberSearch}”.
+                        </div>
+                      )}
+                    </section>
+                  </div>
+                </main>
+
+                <footer className="sticky bottom-0 bg-white border-t border-slate-200 p-3 sm:p-4 pb-4 sm:pb-6">
+                  <div className="max-w-5xl mx-auto flex flex-col gap-2 sm:gap-3">
+                    <button
+                      onClick={confirmAttendance}
+                      disabled={!canConfirm}
+                      className="w-full py-2.5 sm:py-3 px-4 bg-primary text-white text-sm sm:text-base font-bold rounded-lg shadow-sm active:scale-[0.98] transition-transform saturate-theme disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
+                      type="button"
+                    >
+                      CONFIRM ATTENDANCE
+                    </button>
+                    <button
+                      className="w-full py-2.5 sm:py-3 px-4 bg-white text-secondary text-sm sm:text-base font-semibold rounded-lg border border-secondary/30 hover:bg-secondary/5 active:bg-secondary/10 transition-colors"
+                      type="button"
+                      onClick={resetKiosk}
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                </footer>
+
+                {isJoinModalOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 sm:p-6">
+                    <div className="bg-white w-full max-w-lg rounded-custom shadow-2xl p-5 sm:p-8 animate-scale-in">
+                      <div className="flex flex-col items-center text-center mb-6 sm:mb-8">
+                        {selectedMember?.img && (
+                          <img
+                            src={selectedMember.img}
+                            alt={selectedMember.short || selectedMember.name}
+                            className="w-16 h-16 sm:w-20 sm:h-20 rounded-full object-cover border-4 border-primary/20 shadow-sm mb-3"
+                          />
+                        )}
+                        <h2 className="text-xl sm:text-2xl font-bold">
+                          How are you joining us today{selectedMember ? `, ${displayName(selectedMember)}?` : "?"}
+                        </h2>
+                        {selectedMember && (
+                          <p className="mt-1 text-sm text-slate-500">Please confirm this is your name before choosing.</p>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 sm:gap-6">
+                        <button className="flex flex-col items-center justify-center p-6 sm:p-8 bg-brand/10 border-2 border-brand hover:bg-brand hover:text-white transition-all duration-200 rounded-custom group" onClick={() => handleTypePick("Online")}>
+                          <svg className="w-12 h-12 sm:w-16 sm:h-16 mb-3 sm:mb-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
+                          </svg>
+                          <span className="text-lg sm:text-xl font-bold">Worship — Online</span>
+                        </button>
+                        <button className="flex flex-col items-center justify-center p-6 sm:p-8 bg-brand/10 border-2 border-brand hover:bg-brand hover:text-white transition-all duration-200 rounded-custom group" onClick={() => handleTypePick("Face to Face")}>
+                          <svg className="w-12 h-12 sm:w-16 sm:h-16 mb-3 sm:mb-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"></path>
+                          </svg>
+                          <span className="text-lg sm:text-xl font-bold">Worship — Face to Face</span>
+                        </button>
+                      </div>
+                      <p className="text-center mt-5 sm:mt-6 text-gray-500 text-sm">Pleasex select an option to complete check-in</p>
+                      <div className="mt-5 flex justify-center">
+                        <button className="text-secondary underline text-sm" onClick={() => setIsJoinModalOpen(false)} type="button">Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {isSuccessOpen && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 sm:p-6">
+                    <div className="bg-white w-full max-w-md rounded-custom shadow-2xl p-6 sm:p-8 text-center animate-scale-in">
+                      <div className="mb-6 flex justify-center">
+                        <div className="w-24 h-24 bg-brand/20 rounded-full flex items-center justify-center success-icon-animation shadow-[0_0_26px_rgba(212,175,55,0.18)]">
+                          <svg className="h-16 w-16 text-brand" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                            <path clipRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" fillRule="evenodd"></path>
+                          </svg>
+                        </div>
+                      </div>
+                      <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 mb-2">Check-in Successful!</h1>
+                      <p className="text-xl sm:text-2xl font-semibold text-brand mb-4 break-words">{selectedMember ? displayName(selectedMember) : "Member"}</p>
+                      <div className="space-y-1">
+                        <p className="text-gray-500 font-medium">Recorded at:</p>
+                        <p className="text-base sm:text-lg font-bold break-words">{timestamp}</p>
+                        <p className="text-sm text-gray-400 mt-2">Type: {attendanceType}</p>
+                      </div>
+                      <p className="mt-6 text-xs text-slate-400">This will close automatically…</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === "manage" && (
+              <main className="px-3 sm:px-6 py-4 sm:py-6">
+                <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-4">
+                  <section className="lg:col-span-2 bg-white border border-slate-200 rounded-custom p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                      <div>
+                        <div className="text-lg font-bold">Members</div>
+                        <div className="text-sm text-slate-500">Add, edit, update, remove</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <input value={manageQuery} onChange={(e) => setManageQuery(e.target.value)} placeholder="Search name…" className="w-full sm:w-56 rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                        <button type="button" onClick={startAddMember} className="rounded-lg bg-primary text-white px-3 py-2 text-sm font-semibold shadow-sm">+ Add</button>
+                      </div>
+                    </div>
+
+                    <div className="divide-y divide-slate-100">
+                      {filteredManageMembers.map(m => (
+                        <div key={m.id} className="py-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img className="w-10 h-10 rounded-full object-cover border border-slate-200" src={m.img || "https://i.pravatar.cc/160?u=" + encodeURIComponent(m.id)} alt={m.name} />
+                            <div className="min-w-0">
+                              <div className="font-semibold truncate">{m.name} {m.isVisitor && <span className="ml-2 text-xs text-secondary font-semibold">(Visitor)</span>}</div>
+                              <div className="text-xs text-slate-500">{m.gender === "female" ? "Female" : "Male"} • Tile: {m.short || initialsShortName(m.name)}</div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <button type="button" className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 hover:bg-slate-50" onClick={() => startEditMember(m)}>Edit</button>
+                            <button type="button" className="px-3 py-1.5 text-sm rounded-lg border border-secondary/30 text-secondary hover:bg-secondary/5" onClick={() => deleteMember(m)}>Remove</button>
+                          </div>
+                        </div>
+                      ))}
+                      {!filteredManageMembers.length && <div className="py-10 text-center text-slate-500 text-sm">No members found.</div>}
+                    </div>
+                  </section>
+
+                  <section className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6">
+                    <div className="text-lg font-bold mb-1">{editingMember ? "Edit Member" : "Add Member"}</div>
+                    <div className="text-sm text-slate-500 mb-4">This updates the kiosk list.</div>
+
+                    <label className="block text-sm font-semibold mb-1">Full name</label>
+                    <input value={manageForm.name} onChange={(e) => setManageForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Cinco Dela Cruz" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm mb-3" />
+
+                    <label className="block text-sm font-semibold mb-1">Spiritual name (optional)</label>
+                    <input value={manageForm.spiritualName} onChange={(e) => setManageForm(f => ({ ...f, spiritualName: e.target.value }))} placeholder="e.g. Aaron" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm mb-3" />
+
+                    <label className="block text-sm font-semibold mb-1">Gender</label>
+                    <select value={manageForm.gender} onChange={(e) => setManageForm(f => ({ ...f, gender: e.target.value }))} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm mb-3">
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+
+                    <label className="block text-sm font-semibold mb-1">Photo (optional)</label>
+                    <div className="flex items-center gap-3 mb-3">
+                      <label className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 active:bg-slate-100 cursor-pointer">
+                        Choose photo…
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = () => {
+                              const result = String(reader.result || "");
+                              if (result) setManageForm(f => ({ ...f, img: result }));
+                            };
+                            reader.readAsDataURL(file);
+                          }}
+                        />
+                      </label>
+
+                      {manageForm.img ? (
+                        <button
+                          type="button"
+                          className="rounded-lg border border-secondary/30 text-secondary px-3 py-2 text-sm font-semibold hover:bg-secondary/5 active:bg-secondary/10"
+                          onClick={() => setManageForm(f => ({ ...f, img: "" }))}
+                        >
+                          Remove
+                        </button>
+                      ) : (
+                        <div className="text-xs text-slate-500">Opens your device file manager.</div>
+                      )}
+                    </div>
+
+                    {manageForm.img && (
+                      <div className="mb-3 flex items-center gap-3">
+                        <img
+                          src={manageForm.img}
+                          alt="Selected"
+                          className="w-14 h-14 rounded-full object-cover border border-slate-200"
+                        />
+                        <div className="text-xs text-slate-500">
+                          Selected photo will be saved locally on this device.
+                        </div>
+                      </div>
+                    )}
+
+                    <label className="flex items-center gap-2 text-sm mb-4">
+                      <input type="checkbox" checked={manageForm.isVisitor} onChange={(e) => setManageForm(f => ({ ...f, isVisitor: e.target.checked }))} className="rounded border-slate-300" />
+                      Visitor
+                    </label>
+
+                    <div className="flex gap-2">
+                      <button type="button" onClick={saveMember} className="flex-1 rounded-lg bg-primary text-white px-3 py-2 text-sm font-semibold shadow-sm disabled:opacity-50" disabled={!String(manageForm.name || "").trim()}>
+                        {editingMember ? "Update" : "Save"}
+                      </button>
+                      {editingMember && <button type="button" onClick={startAddMember} className="rounded-lg border border-slate-200 px-3 py-2 text-sm">Cancel</button>}
+                    </div>
+                  </section>
+                </div>
+              </main>
+            )}
+
+            {activeTab === "monitoring" && (
+              <main className="px-3 sm:px-6 py-4 sm:py-6">
+                <div className="max-w-5xl mx-auto space-y-4">
+                  <section className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:items-end sm:justify-between">
+                      <div>
+                        <div className="text-lg font-bold">Attendance Monitoring</div>
+                        <div className="text-sm text-slate-500">Pick a worship date to view totals and attendees.</div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2 sm:items-end">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Worship date</label>
+                          <input type="date" value={monitorDate} onChange={(e) => setMonitorDate(e.target.value)} className="rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="block text-xs text-slate-500 mb-1">View</span>
+                          <div className="inline-flex rounded-lg border border-slate-200 bg-white overflow-hidden shadow-sm">
+                            <button
+                              type="button"
+                              onClick={() => setMonitorView("cards")}
+                              className={[
+                                "flex items-center gap-1 px-3 py-1.5 text-xs sm:text-sm",
+                                monitorView === "cards" ? "bg-primary text-white" : "text-slate-600 hover:bg-slate-50"
+                              ].join(" ")}
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <rect x="4" y="4" width="7" height="7" rx="1" />
+                                <rect x="13" y="4" width="7" height="7" rx="1" />
+                                <rect x="4" y="13" width="7" height="7" rx="1" />
+                                <rect x="13" y="13" width="7" height="7" rx="1" />
+                              </svg>
+                              <span className="hidden sm:inline">Cards</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMonitorView("names")}
+                              className={[
+                                "flex items-center gap-1 px-3 py-1.5 text-xs sm:text-sm border-l border-slate-200",
+                                monitorView === "names" ? "bg-primary text-white" : "text-slate-600 hover:bg-slate-50"
+                              ].join(" ")}
+                            >
+                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M4 7h16M4 12h10M4 17h7" />
+                              </svg>
+                              <span className="hidden sm:inline">Names</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="rounded-lg border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Overall total</div>
+                        <div className="text-2xl font-extrabold">{monitorTotals.overall}</div>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Total FTF</div>
+                        <div className="text-2xl font-extrabold">{monitorTotals.ftf}</div>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Total Online</div>
+                        <div className="text-2xl font-extrabold">{monitorTotals.online}</div>
+                      </div>
+                      <div className="rounded-lg border border-slate-200 p-3">
+                        <div className="text-xs text-slate-500">Total Visitors</div>
+                        <div className="text-2xl font-extrabold">{monitorTotals.visitors}</div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="font-bold">Attendees</div>
+                      <div className="text-xs text-slate-500">{monitorRecords.length} record(s)</div>
+                    </div>
+
+                    {monitorView === "names" ? (
+                      <div className="space-y-2">
+                        {monitorRecords.map(r => (
+                          <div key={r.id} className="flex items-center justify-between gap-3 border border-slate-100 rounded-lg px-3 py-2">
+                            <div className="min-w-0">
+                              <div className="font-semibold truncate">
+                                {displayName({ name: r.memberName, gender: r.gender })}{r.isVisitor && <span className="ml-2 text-xs text-secondary font-semibold">(Visitor)</span>}
+                              </div>
+                              <div className="text-xs text-slate-500 truncate">{r.joinType}</div>
+                            </div>
+                            <div className="text-xs text-slate-400 shrink-0">{new Date(r.createdAt).toLocaleTimeString()}</div>
+                          </div>
+                        ))}
+                        {!monitorRecords.length && <div className="py-10 text-center text-slate-500 text-sm">No attendance recorded for this date.</div>}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                        {monitorRecords.map(r => (
+                          <div key={r.id} className="border border-slate-200 rounded-custom p-3 text-center">
+                            <img className="w-14 h-14 rounded-full object-cover mx-auto mb-2 border border-slate-200" src={r.img || "https://i.pravatar.cc/160?u=" + encodeURIComponent(r.memberId)} alt={r.memberName} />
+                            <div className="text-xs font-semibold truncate">{r.memberShort || initialsShortName(r.memberName)}</div>
+                            <div className="text-[10px] text-slate-500">{r.joinType}{r.isVisitor ? " • Visitor" : ""}</div>
+                          </div>
+                        ))}
+                        {!monitorRecords.length && <div className="col-span-full py-10 text-center text-slate-500 text-sm">No attendance recorded for this date.</div>}
+                      </div>
+                    )}
+                  </section>
+                </div>
+              </main>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

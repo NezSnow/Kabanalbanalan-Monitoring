@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { -webkit-tap-highlight-color: transparent; }
+
+@keyframes scaleIn {
+  from { transform: scale(0.96); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+.animate-scale-in { animation: scaleIn 0.2s ease-out forwards; }
+
+.success-icon-animation { animation: bounce-kaban 2s infinite; }
+@keyframes bounce-kaban {
+  0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-10px); }
+  60% { transform: translateY(-5px); }
+}
+
+.saturate-theme { filter: saturate(3); }
+
+@keyframes shimmer {
+  0%   { transform: translateX(-120%); opacity: 0; }
+  20%  { opacity: 0.9; }
+  60%  { opacity: 0.9; }
+  100% { transform: translateX(120%);  opacity: 0; }
+}
+.hero-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,0.35), transparent);
+  transform: translateX(-120%);
+  animation: shimmer 2.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes floatIn {
+  from { transform: translateY(10px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+.animate-float-in { animation: floatIn 450ms cubic-bezier(.2,.8,.2,1) both; }
