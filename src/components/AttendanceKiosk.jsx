@@ -150,7 +150,7 @@ export default function AttendanceKiosk({
         </div>
       </div>
 
-      <main className="px-3 sm:px-6 pb-10 flex-1">
+      <main className="px-3 sm:px-6 pb-48 flex-1">
         <div className="max-w-5xl mx-auto flex flex-col gap-4 sm:gap-6">
 
           {/* ── Hero / counter section ── */}
@@ -354,7 +354,7 @@ export default function AttendanceKiosk({
       </main>
 
       {/* ── Sticky footer ── */}
-      <footer className="sticky bottom-0 bg-white border-t border-slate-200 p-3 sm:p-4 pb-4 sm:pb-6">
+      <footer className="sticky bottom-0 bg-white border-t border-slate-200 p-3 sm:p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-6">
         <div className="max-w-5xl mx-auto flex flex-col gap-2 sm:gap-3">
           <button
             type="button"

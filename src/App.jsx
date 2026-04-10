@@ -109,7 +109,7 @@ export default function App({ onLogout }) {
   const currentKampoLabel = selectedKampo || (selectedKampoId ? selectedKampoId.toUpperCase() : 'Unknown Kampo')
 
   return (
-    <div className="h-screen overflow-hidden bg-white text-slate-900 font-sans antialiased">
+    <div className="h-[100dvh] overflow-hidden bg-white text-slate-900 font-sans antialiased">
       {/* ── Mobile top bar ─────────────────────────────────────────── */}
       <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-slate-200">
         <div className="px-3 py-2 flex items-center justify-between">

@@ -226,54 +226,54 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-white font-sans antialiased text-slate-900 flex flex-col">
       {/* Header */}
-      <header className="border-b border-slate-200 px-6 py-4 sticky top-0 bg-white z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <header className="border-b border-slate-200 px-3 sm:px-6 py-3 sm:py-4 sticky top-0 bg-white z-10">
+        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <div className="w-8 h-8 bg-secondary rounded-custom flex items-center justify-center text-white shadow-sm shrink-0">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                   d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
-            <div className="flex items-center gap-3">
-              <div>
-                <div className="font-bold text-slate-900 leading-tight">Admin Dashboard</div>
-                <div className="text-xs text-slate-500">Kabanalbanalan Monitoring</div>
-              </div>
-              <button
-                type="button"
-                onClick={openNotificationsModal}
-                className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition"
-                aria-label="Notifications"
-                title="Notifications"
-              >
-                <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 10-12 0v3.17c0 .53-.21 1.04-.59 1.42L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
-                  />
-                </svg>
-                {newSignupCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-secondary text-white text-[10px] font-bold flex items-center justify-center animate-bounce">
-                    {newSignupCount > 99 ? '99+' : newSignupCount}
-                  </span>
-                )}
-              </button>
+            <div className="min-w-0">
+              <div className="font-bold text-slate-900 leading-tight text-sm sm:text-base truncate">Admin Dashboard</div>
+              <div className="text-xs text-slate-500 truncate hidden sm:block">Kabanalbanalan Monitoring</div>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={requestLogout}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-secondary/30 text-secondary text-sm font-semibold hover:bg-secondary/5 active:scale-[0.98] transition"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Logout
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={openNotificationsModal}
+              className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition"
+              aria-label="Notifications"
+              title="Notifications"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 10-12 0v3.17c0 .53-.21 1.04-.59 1.42L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
+                />
+              </svg>
+              {newSignupCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-secondary text-white text-[10px] font-bold flex items-center justify-center animate-bounce">
+                  {newSignupCount > 99 ? '99+' : newSignupCount}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={requestLogout}
+              className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-secondary/30 text-secondary text-sm font-semibold hover:bg-secondary/5 active:scale-[0.98] transition"
+            >
+              <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          </div>
         </div>
       </header>
 
