@@ -109,9 +109,9 @@ export default function App({ onLogout }) {
   const currentKampoLabel = selectedKampo || (selectedKampoId ? selectedKampoId.toUpperCase() : 'Unknown Kampo')
 
   return (
-    <div className="h-[100dvh] overflow-hidden bg-white text-slate-900 font-sans antialiased">
+    <div className="h-[100dvh] overflow-hidden bg-white text-slate-900 font-sans antialiased flex flex-col">
       {/* ── Mobile top bar ─────────────────────────────────────────── */}
-      <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-slate-200">
+      <div className="lg:hidden shrink-0 sticky top-0 z-20 bg-white border-b border-slate-200">
         <div className="px-3 py-2 flex items-center justify-between">
           <button
             type="button"
@@ -135,7 +135,7 @@ export default function App({ onLogout }) {
         </div>
       </div>
 
-      <div className="flex h-full">
+      <div className="flex flex-1 min-h-0">
         {/* ── Sidebar ──────────────────────────────────────────────── */}
         <Sidebar
           activeTab={activeTab}
@@ -150,7 +150,7 @@ export default function App({ onLogout }) {
         />
 
         {/* ── Main content ─────────────────────────────────────────── */}
-        <div className="flex-1 min-w-0 h-full overflow-y-auto">
+        <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
           {/* Desktop header */}
           <header className="hidden lg:block bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-10">
             <div className="flex items-center justify-between">
