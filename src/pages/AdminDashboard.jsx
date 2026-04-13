@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 import AttendanceCharts from '../components/AttendanceCharts'
 import KampoAttendancePanel from '../components/KampoAttendancePanel'
+import AdminSidebar from '../components/AdminSidebar'
 import { supabase } from '../lib/supabaseClient'
 import {
   approveUserById,
@@ -31,8 +32,18 @@ function playNotificationSound() {
   }
 }
 
+const TAB_LABELS = {
+  overview: 'Overview',
+  analytics: 'Attendance Analytics',
+  kampo: 'Kampo Attendance',
+  accounts: 'Account Requests',
+}
+
 export default function AdminDashboard() {
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('overview')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [users, setUsers] = useState([])
   const [pendingUsers, setPendingUsers] = useState([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
@@ -80,23 +91,18 @@ export default function AdminDashboard() {
         { event: 'INSERT', schema: 'public', table: 'app_users' },
         (payload) => {
           const newUser = payload.new
-          // Only care about pending status
           if (newUser.status !== 'pending') return
           if (!newUser.id) return
 
-          // Guard against duplicate realtime deliveries.
           if (seenInsertIdsRef.current.has(newUser.id)) return
           seenInsertIdsRef.current.add(newUser.id)
 
-          // Append to state — deduplicate by id to prevent double renders
           setPendingUsers(prev =>
             prev.some(u => u.id === newUser.id) ? prev : [...prev, newUser]
           )
 
-          // Increment the new-since-page-load badge counter
           setNewSignupCount(c => c + 1)
 
-          // Keep a lightweight in-app notification history for the modal.
           setNotifications(prev => ([
             {
               id: newUser.id,
@@ -109,10 +115,8 @@ export default function AdminDashboard() {
             ...prev,
           ].slice(0, 25)))
 
-          // Subtle audio alert
           playNotificationSound()
 
-          // Rich toast notification
           toast.custom(
             (t) => (
               <div
@@ -123,15 +127,12 @@ export default function AdminDashboard() {
                 }}
                 className="flex items-start gap-3 bg-slate-800 text-white px-4 py-3 rounded-xl shadow-xl border border-slate-700 w-80"
               >
-                {/* Avatar icon */}
-                <div className="mt-0.5 h-9 w-9 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
-                  <svg className="h-4 w-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="mt-0.5 h-9 w-9 rounded-full bg-secondary/20 border border-secondary/30 flex items-center justify-center shrink-0">
+                  <svg className="h-4 w-4 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
-
-                {/* Body */}
                 <div className="flex-1 min-w-0">
                   <div className="font-semibold text-sm leading-tight">New Signup — Pending Approval</div>
                   <div className="text-slate-200 text-xs mt-1 font-medium truncate">{newUser.name}</div>
@@ -142,8 +143,6 @@ export default function AdminDashboard() {
                     </div>
                   )}
                 </div>
-
-                {/* Dismiss */}
                 <button
                   type="button"
                   onClick={() => toast.dismiss(t.id)}
@@ -192,6 +191,11 @@ export default function AdminDashboard() {
     }
   }
 
+  function navTo(tab) {
+    setActiveTab(tab)
+    setSidebarOpen(false)
+  }
+
   function requestLogout() {
     setConfirmOpen(true)
   }
@@ -224,168 +228,284 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-white font-sans antialiased text-slate-900 flex flex-col">
-      {/* Header */}
-      <header className="border-b border-slate-200 px-3 sm:px-6 py-3 sm:py-4 sticky top-0 bg-white z-10">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 bg-secondary rounded-custom flex items-center justify-center text-white shadow-sm shrink-0">
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
+    <div className="h-[100dvh] overflow-hidden bg-white text-slate-900 font-sans antialiased flex">
+      {/* ── Sidebar ────────────────────────────────────────────────── */}
+      <AdminSidebar
+        activeTab={activeTab}
+        sidebarOpen={sidebarOpen}
+        sidebarCollapsed={sidebarCollapsed}
+        pendingCount={pendingUsers.length}
+        newSignupCount={newSignupCount}
+        onNavTo={navTo}
+        onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+        onOverlayClick={() => setSidebarOpen(false)}
+        onNotifications={openNotificationsModal}
+        onLogout={requestLogout}
+      />
+
+      {/* ── Main content ───────────────────────────────────────────── */}
+      <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
+        {/* Mobile top bar */}
+        <div className="lg:hidden sticky top-0 z-20 bg-white border-b border-slate-200 shrink-0">
+          <div className="px-3 py-2 flex items-center justify-between gap-2">
+            <button
+              type="button"
+              className="p-2 rounded-lg border border-slate-200"
+              onClick={() => setSidebarOpen(s => !s)}
+            >
+              <span className="sr-only">Toggle menu</span>
+              <div className="w-5 h-5 grid gap-1">
+                <span className="block h-0.5 bg-slate-700" />
+                <span className="block h-0.5 bg-slate-700" />
+                <span className="block h-0.5 bg-slate-700" />
+              </div>
+            </button>
+            <div className="text-center min-w-0">
+              <div className="text-sm font-extrabold tracking-tight text-slate-900 truncate">
+                {TAB_LABELS[activeTab]}
+              </div>
+              <div className="text-[10px] text-slate-500">Admin Panel</div>
             </div>
-            <div className="min-w-0">
-              <div className="font-bold text-slate-900 leading-tight text-sm sm:text-base truncate">Admin Dashboard</div>
-              <div className="text-xs text-slate-500 truncate hidden sm:block">Kabanalbanalan Monitoring</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
+            {/* Notification bell (mobile) */}
             <button
               type="button"
               onClick={openNotificationsModal}
-              className="relative inline-flex items-center justify-center h-9 w-9 rounded-lg border border-slate-200 text-slate-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 transition"
+              className="relative p-2 rounded-lg border border-slate-200 text-slate-600"
               aria-label="Notifications"
-              title="Notifications"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                  d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 10-12 0v3.17c0 .53-.21 1.04-.59 1.42L4 17h5m6 0a3 3 0 11-6 0m6 0H9"
-                />
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                  d="M15 17h5l-1.4-1.4A2 2 0 0118 14.17V11a6 6 0 10-12 0v3.17c0 .53-.21 1.04-.59 1.42L4 17h5m6 0a3 3 0 11-6 0m6 0H9" />
               </svg>
               {newSignupCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-secondary text-white text-[10px] font-bold flex items-center justify-center animate-bounce">
+                <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-0.5 rounded-full bg-secondary text-white text-[9px] font-bold flex items-center justify-center animate-bounce">
                   {newSignupCount > 99 ? '99+' : newSignupCount}
                 </span>
               )}
             </button>
-            <button
-              type="button"
-              onClick={requestLogout}
-              className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg border border-secondary/30 text-secondary text-sm font-semibold hover:bg-secondary/5 active:scale-[0.98] transition"
-            >
-              <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          </div>
+        </div>
+
+        {/* Desktop page header */}
+        <header className="hidden lg:flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white shrink-0">
+          <div>
+            <div className="text-xl font-extrabold tracking-tight text-slate-900">
+              {TAB_LABELS[activeTab]}
+            </div>
+            <div className="mt-1 text-xs text-slate-500">Kabanalbanalan Monitoring System</div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Admin badge */}
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-secondary/25 bg-secondary/10 px-3 py-1 text-xs font-semibold text-secondary">
+              <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
-              <span className="hidden sm:inline">Logout</span>
-            </button>
+              Administrator
+            </span>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main */}
-      <main className="flex-1 px-4 sm:px-6 py-8">
-        <div className="max-w-5xl mx-auto">
-          {/* Welcome banner */}
-          <div className="relative overflow-hidden bg-white border border-slate-200 rounded-custom p-6 shadow-sm mb-6">
-            <div className="absolute inset-0 hero-shimmer opacity-60 pointer-events-none" />
-            <div className="relative">
-              <h2 className="text-2xl sm:text-3xl font-extrabold">
-                <span className="bg-gradient-to-r from-secondary via-slate-900 to-secondary bg-clip-text text-transparent">
-                  Welcome, Admin!
-                </span>
-              </h2>
-              <div className="mt-2 h-1 w-20 rounded-full bg-secondary/70" />
-              <p className="mt-3 text-slate-500 text-sm sm:text-base">
-                You have full access to the Kabanalbanalan Monitoring System.
-              </p>
-            </div>
-          </div>
+        {/* Scrollable page content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
 
-          {/* Stats cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-            {[
-              { label: 'Total Members',     value: users.length,        icon: '👥', pulse: false },
-              { label: 'Pending Approvals', value: pendingUsers.length, icon: '📝', pulse: pendingUsers.length > 0 },
-              { label: 'Total Kampos',      value: '4',                 icon: '🏡', pulse: false },
-            ].map(c => (
-              <div key={c.label} className="relative bg-white border border-slate-200 rounded-custom p-5 shadow-sm overflow-hidden">
-                {/* Pulsing dot for pending approvals */}
-                {c.pulse && (
-                  <span className="absolute top-3 right-3 flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75" />
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-secondary" />
-                  </span>
-                )}
-                <div className="text-2xl mb-2">{c.icon}</div>
-                <div className="text-2xl font-extrabold text-slate-900">{c.value}</div>
-                <div className="text-sm text-slate-500 mt-0.5">{c.label}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Attendance Analytics Charts */}
-          <AttendanceCharts />
-
-          {/* All-Kampo Attendance by Date */}
-          <KampoAttendancePanel />
-
-          {/* Pending requests section */}
-          <section className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="font-bold">Pending Account Requests</div>
-                {pendingUsers.length > 0 && (
-                  <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 rounded-full bg-secondary/10 text-secondary text-xs font-bold border border-secondary/20">
-                    {pendingUsers.length}
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-slate-500">{pendingUsers.length} request(s)</div>
-            </div>
-
-            {accountsError && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-                {accountsError}
-              </div>
-            )}
-
-            {loadingAccounts ? (
-              <div className="py-10 text-center text-slate-500 text-sm">Loading account requests...</div>
-            ) : pendingUsers.length === 0 ? (
-              <div className="py-10 text-center text-slate-500 text-sm">
-                No pending account requests.
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {pendingUsers.map(u => (
-                  <div
-                    key={u.id}
-                    className="border border-slate-200 rounded-lg px-3 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-                  >
-                    <div className="min-w-0">
-                      <div className="font-semibold text-slate-900 truncate">{u.name}</div>
-                      <div className="text-xs text-slate-500 truncate">{u.email}</div>
-                      <div className="text-xs text-slate-500 truncate">{u.kampo || 'No kampo selected'}</div>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => approveUser(u.id)}
-                        className="px-3 py-1.5 text-sm rounded-lg border border-primary/30 text-primary font-semibold hover:bg-primary/5"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => rejectUser(u.id)}
-                        className="px-3 py-1.5 text-sm rounded-lg border border-secondary/30 text-secondary font-semibold hover:bg-secondary/5"
-                      >
-                        Reject
-                      </button>
-                    </div>
+            {/* ── Overview ──────────────────────────────────────── */}
+            {activeTab === 'overview' && (
+              <div className="space-y-6">
+                {/* Welcome banner */}
+                <div className="relative overflow-hidden bg-white border border-slate-200 rounded-custom p-6 shadow-sm">
+                  <div className="absolute inset-0 hero-shimmer opacity-60 pointer-events-none" />
+                  <div className="relative">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold">
+                      <span className="bg-gradient-to-r from-secondary via-slate-900 to-secondary bg-clip-text text-transparent">
+                        Welcome, Admin!
+                      </span>
+                    </h2>
+                    <div className="mt-2 h-1 w-20 rounded-full bg-secondary/70" />
+                    <p className="mt-3 text-slate-500 text-sm sm:text-base">
+                      You have full access to the Kabanalbanalan Monitoring System.
+                    </p>
                   </div>
-                ))}
+                </div>
+
+                {/* Stats cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[
+                    { label: 'Total Members',     value: users.length,        icon: '👥', pulse: false, tab: null },
+                    { label: 'Pending Approvals', value: pendingUsers.length, icon: '📝', pulse: pendingUsers.length > 0, tab: 'accounts' },
+                    { label: 'Total Kampos',      value: '4',                 icon: '🏡', pulse: false, tab: 'kampo' },
+                  ].map(c => (
+                    <button
+                      key={c.label}
+                      type="button"
+                      onClick={() => c.tab && navTo(c.tab)}
+                      className={[
+                        'relative bg-white border border-slate-200 rounded-custom p-5 shadow-sm overflow-hidden text-left w-full',
+                        c.tab ? 'hover:border-secondary/40 hover:shadow-md transition cursor-pointer' : 'cursor-default',
+                      ].join(' ')}
+                    >
+                      {c.pulse && (
+                        <span className="absolute top-3 right-3 flex h-3 w-3">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75" />
+                          <span className="relative inline-flex rounded-full h-3 w-3 bg-secondary" />
+                        </span>
+                      )}
+                      <div className="text-2xl mb-2">{c.icon}</div>
+                      <div className="text-2xl font-extrabold text-slate-900">{c.value}</div>
+                      <div className="text-sm text-slate-500 mt-0.5">{c.label}</div>
+                      {c.tab && (
+                        <div className="mt-2 text-[11px] text-secondary font-semibold">View →</div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Quick nav cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[
+                    {
+                      tab: 'analytics',
+                      title: 'Attendance Analytics',
+                      desc: 'View charts and trends across all kampos.',
+                      icon: (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3v18h18" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 14l2-2 3 3 5-7 3 3" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      tab: 'kampo',
+                      title: 'Kampo Attendance',
+                      desc: 'Browse attendance records by kampo and date.',
+                      icon: (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      tab: 'accounts',
+                      title: 'Account Requests',
+                      desc: 'Approve or reject pending member signups.',
+                      icon: (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                            d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                            d="M8.5 11a4 4 0 100-8 4 4 0 000 8z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 8v6m3-3h-6" />
+                        </svg>
+                      ),
+                    },
+                  ].map(card => (
+                    <button
+                      key={card.tab}
+                      type="button"
+                      onClick={() => navTo(card.tab)}
+                      className="bg-white border border-slate-200 rounded-custom p-5 shadow-sm hover:border-secondary/40 hover:shadow-md transition text-left w-full group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-secondary/10 border border-secondary/20 flex items-center justify-center text-secondary mb-3 group-hover:bg-secondary group-hover:text-white transition">
+                        {card.icon}
+                      </div>
+                      <div className="font-semibold text-slate-900">{card.title}</div>
+                      <div className="text-xs text-slate-500 mt-1">{card.desc}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-          </section>
-        </div>
-      </main>
 
+            {/* ── Analytics ─────────────────────────────────────── */}
+            {activeTab === 'analytics' && (
+              <AttendanceCharts />
+            )}
+
+            {/* ── Kampo Attendance ──────────────────────────────── */}
+            {activeTab === 'kampo' && (
+              <KampoAttendancePanel />
+            )}
+
+            {/* ── Account Requests ──────────────────────────────── */}
+            {activeTab === 'accounts' && (
+              <section className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="font-bold text-slate-900">Pending Account Requests</div>
+                    {pendingUsers.length > 0 && (
+                      <span className="inline-flex items-center justify-center h-5 min-w-[1.25rem] px-1.5 rounded-full bg-secondary/10 text-secondary text-xs font-bold border border-secondary/20">
+                        {pendingUsers.length}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500">{pendingUsers.length} request(s)</div>
+                </div>
+
+                {accountsError && (
+                  <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                    {accountsError}
+                  </div>
+                )}
+
+                {loadingAccounts ? (
+                  <div className="py-10 text-center text-slate-500 text-sm">Loading account requests...</div>
+                ) : pendingUsers.length === 0 ? (
+                  <div className="py-14 text-center">
+                    <div className="text-3xl mb-3">✅</div>
+                    <div className="text-slate-700 font-semibold">All caught up!</div>
+                    <div className="text-slate-500 text-sm mt-1">No pending account requests.</div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {pendingUsers.map(u => (
+                      <div
+                        key={u.id}
+                        className="border border-slate-200 rounded-lg px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                      >
+                        <div className="min-w-0 flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-secondary/10 border border-secondary/20 flex items-center justify-center text-secondary shrink-0 font-bold text-sm">
+                            {(u.name || '?')[0].toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-slate-900 truncate">{u.name}</div>
+                            <div className="text-xs text-slate-500 truncate">{u.email}</div>
+                            {u.kampo && (
+                              <div className="mt-0.5 inline-flex items-center gap-1 bg-slate-100 rounded-full px-2 py-0.5 text-[10px] text-slate-600">
+                                🏡 {u.kampo}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => approveUser(u.id)}
+                            className="px-3 py-1.5 text-sm rounded-lg border border-primary/30 text-primary font-semibold hover:bg-primary/5 transition"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => rejectUser(u.id)}
+                            className="px-3 py-1.5 text-sm rounded-lg border border-secondary/30 text-secondary font-semibold hover:bg-secondary/5 transition"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+          </div>
+        </div>
+      </div>
+
+      {/* ── Dialogs ────────────────────────────────────────────────── */}
       <ConfirmDialog
         open={confirmOpen}
         title="Logout"
@@ -398,6 +518,7 @@ export default function AdminDashboard() {
         busy={busy}
       />
 
+      {/* ── Notifications Modal ────────────────────────────────────── */}
       {notificationsOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
           <button
