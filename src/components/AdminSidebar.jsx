@@ -11,6 +11,17 @@ const NAV = [
     ),
   },
   {
+    id: 'users',
+    label: 'Total Users',
+    sub: 'View, edit & remove',
+    icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+  },
+  {
     id: 'analytics',
     label: 'Attendance Analytics',
     sub: 'Charts & trends',
@@ -36,7 +47,6 @@ const NAV = [
     id: 'accounts',
     label: 'Account Requests',
     sub: 'Approve / Reject',
-    badge: null,
     icon: (
       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
@@ -85,7 +95,6 @@ export default function AdminSidebar({
         {/* ── Header ───────────────────────────────────────────────── */}
         <div className="p-4 border-b border-slate-200 shrink-0">
           <div className="flex items-center gap-2">
-            {/* Shield icon */}
             <div className="w-7 h-7 bg-secondary rounded-lg flex items-center justify-center text-white shadow-sm shrink-0">
               <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
@@ -93,7 +102,6 @@ export default function AdminSidebar({
               </svg>
             </div>
 
-            {/* Desktop collapse toggle */}
             <button
               type="button"
               className={[
@@ -114,7 +122,6 @@ export default function AdminSidebar({
               )}
             </button>
 
-            {/* Brand name — hidden when collapsed on desktop */}
             <div className={sidebarCollapsed ? 'min-w-0 lg:hidden' : 'min-w-0'}>
               <div className="font-bold text-slate-900 text-sm truncate leading-tight">Admin Panel</div>
               <div className="text-[10px] text-slate-500 truncate">Kabanalbanalan Monitoring</div>
@@ -150,7 +157,6 @@ export default function AdminSidebar({
                       : 'bg-secondary/10 text-secondary border-secondary/20',
                   ].join(' ')}>
                     {icon}
-                    {/* Badge on icon when collapsed */}
                     {sidebarCollapsed && badgeCount > 0 && (
                       <span className="absolute -top-1.5 -right-1.5 min-w-[1rem] h-4 px-1 rounded-full bg-secondary text-white text-[9px] font-bold flex items-center justify-center leading-none">
                         {badgeCount > 99 ? '99+' : badgeCount}

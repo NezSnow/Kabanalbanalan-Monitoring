@@ -64,6 +64,29 @@ export async function rejectUserById(id) {
   if (error) throw error
 }
 
+export async function updateUserById(id, fields) {
+  const allowed = {}
+  if (fields.name  !== undefined) allowed.name  = String(fields.name  || '').trim()
+  if (fields.email !== undefined) allowed.email = normalizeEmail(fields.email)
+  if (fields.kampo !== undefined) allowed.kampo = String(fields.kampo || '')
+  const { data, error } = await supabase
+    .from('app_users')
+    .update(allowed)
+    .eq('id', id)
+    .select('*')
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deleteUserById(id) {
+  const { error } = await supabase
+    .from('app_users')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
 export async function getAuthStateByCredentials(identifier, password) {
   const email = normalizeEmail(identifier)
 
