@@ -33,6 +33,8 @@ export default function CampSelection() {
         <div className="camp-orb-1 absolute -top-24 -left-24 w-96 h-96 rounded-full bg-yellow-300/25 blur-3xl" />
         <div className="camp-orb-2 absolute top-1/2 -right-32 w-80 h-80 rounded-full bg-red-800/30 blur-3xl" />
         <div className="camp-orb-3 absolute -bottom-20 left-1/3 w-72 h-72 rounded-full bg-amber-400/20 blur-3xl" />
+        {/* Dark scrim — ensures white text stays readable over the bright gradient */}
+        <div className="absolute inset-0 bg-black/50" />
         {/* Subtle grid overlay */}
         <div
           className="absolute inset-0 opacity-[0.06]"
@@ -54,8 +56,8 @@ export default function CampSelection() {
             </svg>
           </div>
           <div>
-            <div className="text-base font-extrabold text-white leading-tight drop-shadow-sm tracking-wide">Most Holy Church</div>
-            <div className="text-[11px] font-medium text-white/60 tracking-wider uppercase">Kabanalbanalan Monitoring</div>
+            <div className="text-base font-extrabold text-white leading-tight drop-shadow tracking-wide">Most Holy Church</div>
+            <div className="text-[11px] font-medium text-white/80 tracking-wider uppercase">Kabanalbanalan Monitoring</div>
           </div>
         </div>
       </header>
@@ -82,10 +84,10 @@ export default function CampSelection() {
               </svg>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-black text-white drop-shadow-md tracking-tight leading-none">
+            <h1 className="text-4xl sm:text-5xl font-black text-white drop-shadow-lg tracking-tight leading-none">
               Select Your Kampo
             </h1>
-            <p className="mt-2 text-white/65 text-sm sm:text-base font-medium tracking-wide">
+            <p className="mt-2 text-white/90 text-sm sm:text-base font-medium tracking-wide">
               Choose your group to continue to attendance check-in
             </p>
           </div>
@@ -113,8 +115,8 @@ export default function CampSelection() {
                   </svg>
                 </div>
                 <div className="text-center">
-                  <div className="text-base font-extrabold text-white leading-tight drop-shadow-sm tracking-tight group-hover:text-yellow-100 transition-colors">{k.name}</div>
-                  {k.sub && <div className="text-[11px] font-medium text-white/55 mt-0.5 tracking-wide">{k.sub}</div>}
+                  <div className="text-base font-extrabold text-white leading-tight drop-shadow tracking-tight group-hover:text-yellow-200 transition-colors">{k.name}</div>
+                  {k.sub && <div className="text-[11px] font-medium text-white/80 mt-0.5 tracking-wide">{k.sub}</div>}
                 </div>
               </button>
             ))}
@@ -125,7 +127,7 @@ export default function CampSelection() {
             <button
               type="button"
               onClick={() => navigate('/admin-login')}
-              className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-widest uppercase text-white/40 hover:text-white/80 hover:underline transition-colors"
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-widest uppercase text-white/70 hover:text-white hover:underline transition-colors"
             >
               <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
