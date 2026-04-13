@@ -54,8 +54,8 @@ export default function CampSelection() {
             </svg>
           </div>
           <div>
-            <div className="font-extrabold text-white leading-tight drop-shadow-sm">Most Holy Church</div>
-            <div className="text-xs text-white/70">Kabanalbanalan Monitoring</div>
+            <div className="text-base font-extrabold text-white leading-tight drop-shadow-sm tracking-wide">Most Holy Church</div>
+            <div className="text-[11px] font-medium text-white/60 tracking-wider uppercase">Kabanalbanalan Monitoring</div>
           </div>
         </div>
       </header>
@@ -82,10 +82,10 @@ export default function CampSelection() {
               </svg>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-white drop-shadow-md tracking-tight">
+            <h1 className="text-4xl sm:text-5xl font-black text-white drop-shadow-md tracking-tight leading-none">
               Select Your Kampo
             </h1>
-            <p className="mt-2 text-white/80 text-sm sm:text-base">
+            <p className="mt-2 text-white/65 text-sm sm:text-base font-medium tracking-wide">
               Choose your group to continue to attendance check-in
             </p>
           </div>
@@ -113,8 +113,8 @@ export default function CampSelection() {
                   </svg>
                 </div>
                 <div className="text-center">
-                  <div className="text-sm font-bold text-white leading-tight drop-shadow-sm">{k.name}</div>
-                  {k.sub && <div className="text-[11px] text-white/70 mt-0.5">{k.sub}</div>}
+                  <div className="text-base font-extrabold text-white leading-tight drop-shadow-sm tracking-tight group-hover:text-yellow-100 transition-colors">{k.name}</div>
+                  {k.sub && <div className="text-[11px] font-medium text-white/55 mt-0.5 tracking-wide">{k.sub}</div>}
                 </div>
               </button>
             ))}
@@ -125,7 +125,7 @@ export default function CampSelection() {
             <button
               type="button"
               onClick={() => navigate('/admin-login')}
-              className="inline-flex items-center gap-1.5 text-xs text-white/50 hover:text-white hover:underline transition-colors"
+              className="inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-widest uppercase text-white/40 hover:text-white/80 hover:underline transition-colors"
             >
               <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
