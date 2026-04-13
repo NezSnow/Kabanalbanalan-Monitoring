@@ -108,7 +108,7 @@ export default function Sidebar({
 
               {/* Brand name — hidden when collapsed on desktop */}
               <div className={sidebarCollapsed ? 'min-w-0 lg:hidden' : 'min-w-0'}>
-                <div className="font-bold truncate">Grace Community</div>
+                <div className="font-bold truncate">Most Holy Church</div>
                 <div className="text-xs text-slate-500 truncate">Kabanalbanalan Monitoring</div>
               </div>
             </div>

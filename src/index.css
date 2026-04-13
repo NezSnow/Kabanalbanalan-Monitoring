@@ -40,3 +40,56 @@ body { -webkit-tap-highlight-color: transparent; }
   to   { transform: translateY(0);    opacity: 1; }
 }
 .animate-float-in { animation: floatIn 450ms cubic-bezier(.2,.8,.2,1) both; }
+
+/* ── Camp-selection moving gradient background ── */
+@keyframes gradientShift {
+  0%   { background-position: 0%   50%; }
+  25%  { background-position: 100% 50%; }
+  50%  { background-position: 100% 0%;  }
+  75%  { background-position: 0%   100%; }
+  100% { background-position: 0%   50%; }
+}
+.camp-bg {
+  background: linear-gradient(
+    135deg,
+    #7f1d1d,
+    #b91c1c,
+    #dc2626,
+    #f59e0b,
+    #d97706,
+    #eab308,
+    #fbbf24,
+    #dc2626,
+    #991b1b,
+    #7f1d1d
+  );
+  background-size: 400% 400%;
+  animation: gradientShift 8s ease infinite;
+}
+
+@keyframes orb1 {
+  0%,100% { transform: translate(0,0)      scale(1); }
+  33%     { transform: translate(60px,-40px) scale(1.15); }
+  66%     { transform: translate(-40px,60px) scale(0.9); }
+}
+@keyframes orb2 {
+  0%,100% { transform: translate(0,0)       scale(1); }
+  33%     { transform: translate(-70px,50px) scale(1.2); }
+  66%     { transform: translate(50px,-70px) scale(0.85); }
+}
+@keyframes orb3 {
+  0%,100% { transform: translate(0,0)       scale(1); }
+  50%     { transform: translate(80px,30px)  scale(1.1); }
+}
+.camp-orb-1 { animation: orb1 9s  ease-in-out infinite; }
+.camp-orb-2 { animation: orb2 11s ease-in-out infinite; }
+.camp-orb-3 { animation: orb3 7s  ease-in-out infinite; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.camp-fade-up { animation: fadeUp 0.7s cubic-bezier(.2,.8,.2,1) both; }
+.camp-fade-up-d1 { animation-delay: 0.1s; }
+.camp-fade-up-d2 { animation-delay: 0.2s; }
+.camp-fade-up-d3 { animation-delay: 0.3s; }
