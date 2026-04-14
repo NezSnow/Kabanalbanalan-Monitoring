@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 import AttendanceCharts from '../components/AttendanceCharts'
+import AttendanceComparison from '../components/AttendanceComparison'
 import KampoAttendancePanel from '../components/KampoAttendancePanel'
 import AdminSidebar from '../components/AdminSidebar'
 import { supabase } from '../lib/supabaseClient'
@@ -669,7 +670,12 @@ export default function AdminDashboard() {
             )}
 
             {/* ── Attendance Analytics ─────────────────────────────── */}
-            {activeTab === 'analytics' && <AttendanceCharts />}
+            {activeTab === 'analytics' && (
+              <div className="space-y-6">
+                <AttendanceCharts />
+                <AttendanceComparison />
+              </div>
+            )}
 
             {/* ── Kampo Attendance ─────────────────────────────────── */}
             {activeTab === 'kampo' && <KampoAttendancePanel />}
