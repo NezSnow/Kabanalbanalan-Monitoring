@@ -16,26 +16,122 @@ function normalizeKampoId(row) {
   return found?.id ?? null
 }
 
-const JOIN_COLORS = {
-  'Face to Face': { card: 'border-emerald-200 bg-emerald-50', label: 'text-emerald-600', value: 'text-emerald-700' },
-  'Online':       { card: 'border-indigo-200  bg-indigo-50',  label: 'text-indigo-500',  value: 'text-indigo-700'  },
-  'SVJ':          { card: 'border-amber-200   bg-amber-50',   label: 'text-amber-500',   value: 'text-amber-700'   },
+/* ── Color tokens (no 'label' or 'value' keys — avoids spread conflicts) ── */
+const JOIN_STYLE = {
+  'Face to Face': {
+    pill:     'border-emerald-200 bg-emerald-50 text-emerald-700',
+    dot:      'bg-emerald-500',
+    cardText: 'text-emerald-700',
+  },
+  'Online': {
+    pill:     'border-indigo-200 bg-indigo-50 text-indigo-700',
+    dot:      'bg-indigo-500',
+    cardText: 'text-indigo-700',
+  },
+  'SVJ': {
+    pill:     'border-amber-200 bg-amber-50 text-amber-700',
+    dot:      'bg-amber-500',
+    cardText: 'text-amber-700',
+  },
 }
 
 const KAMPO_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899']
 
-/* ── Stat card ────────────────────────────────────────────────────────────── */
-function StatCard({ label, value, colorCard = 'border-slate-200 bg-white', colorLabel = 'text-slate-500', colorValue = 'text-slate-900', pulse = false }) {
+/* ── Stat card ─────────────────────────────────────────────────────────────── */
+function StatCard({ name, count, cardCls, nameCls, countCls, pulse = false }) {
   return (
-    <div className={`relative rounded-xl border p-4 shadow-sm ${colorCard}`}>
+    <div className={`relative rounded-xl border p-4 shadow-sm ${cardCls}`}>
       {pulse && (
         <span className="absolute top-2.5 right-2.5 flex h-2.5 w-2.5">
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
           <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
         </span>
       )}
-      <div className={`text-[11px] font-semibold uppercase tracking-wider ${colorLabel}`}>{label}</div>
-      <div className={`text-3xl font-black mt-1 ${colorValue}`}>{value}</div>
+      <div className={`text-[11px] font-semibold uppercase tracking-wider ${nameCls}`}>{name}</div>
+      <div className={`text-3xl font-black mt-1 ${countCls}`}>{count}</div>
+    </div>
+  )
+}
+
+/* ── Attendees modal ────────────────────────────────────────────────────────── */
+function AttendeesModal({ kampo, attendees, onClose }) {
+  const sorted = useMemo(
+    () => [...attendees].sort((a, b) => (a.member_name || '').localeCompare(b.member_name || '')),
+    [attendees]
+  )
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-2xl max-h-[85dvh] flex flex-col bg-white rounded-2xl shadow-2xl border border-slate-200">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 shrink-0">
+          <div>
+            <div className="font-bold text-slate-900">{kampo.name} — Attendees</div>
+            <div className="text-xs text-slate-500 mt-0.5">
+              {sorted.length} attendee{sorted.length !== 1 ? 's' : ''} on this date
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition"
+            aria-label="Close"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-5 py-4">
+          {sorted.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 text-sm">
+              No attendance recorded for this kampo.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {sorted.map(r => {
+                const jt     = r.join_type || 'Face to Face'
+                const style  = JOIN_STYLE[jt] || JOIN_STYLE['Face to Face']
+                const short  = jt === 'Face to Face' ? 'FTF' : jt
+                return (
+                  <div
+                    key={r.member_id || `${r.member_name}-${r.join_type}`}
+                    className="border border-slate-200 rounded-xl p-3 text-center hover:border-secondary/30 hover:bg-secondary/5 transition"
+                  >
+                    <img
+                      className="w-14 h-14 rounded-full object-cover mx-auto mb-2 border border-slate-200"
+                      src={avatarUrl(r.member_id)}
+                      alt={r.member_name}
+                    />
+                    <div className="text-xs font-semibold text-slate-900 truncate leading-tight">
+                      {r.member_name || '—'}
+                    </div>
+                    <div className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold ${style.pill}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${style.dot}`} />
+                      {short}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-slate-200 shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -49,8 +145,9 @@ export default function AdminAttendanceMonitor() {
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(null)
   const [lastRefresh, setLastRefresh] = useState(null)
+  const [modalKampo,  setModalKampo]  = useState(null) // { kampo, rows }
 
-  /* ── fetch ──────────────────────────────────────────────────────────── */
+  /* ── fetch ────────────────────────────────────────────────────────────── */
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true)
     setError(null)
@@ -65,33 +162,29 @@ export default function AdminAttendanceMonitor() {
     }
   }, [date])
 
-  // Initial + date-change fetch
   useEffect(() => { load() }, [load])
 
-  // TRM — fetch once
   useEffect(() => {
     fetchMemberCountsAllKampos().then(setTrm).catch(() => {})
   }, [])
 
-  // Auto-refresh every 30 s
   useEffect(() => {
     const id = setInterval(() => load(true), 30_000)
     return () => clearInterval(id)
   }, [load])
 
-  /* ── filter rows by selected kampo ──────────────────────────────────── */
+  /* ── derived data ────────────────────────────────────────────────────── */
   const filtered = useMemo(() => {
     if (kampoFilter === 'all') return rows
     return rows.filter(r => normalizeKampoId(r) === kampoFilter)
   }, [rows, kampoFilter])
 
-  /* ── overall totals ──────────────────────────────────────────────────── */
   const totals = useMemo(() => {
     let ftf = 0, online = 0, svj = 0
     filtered.forEach(r => {
-      if (r.join_type === 'Face to Face') ftf++
-      else if (r.join_type === 'Online')  online++
-      else if (r.join_type === 'SVJ')     svj++
+      if      (r.join_type === 'Face to Face') ftf++
+      else if (r.join_type === 'Online')       online++
+      else if (r.join_type === 'SVJ')          svj++
     })
     const trmTotal = kampoFilter === 'all'
       ? KAMPOS.reduce((s, k) => s + (trm[k.id] || 0), 0)
@@ -99,21 +192,17 @@ export default function AdminAttendanceMonitor() {
     return { overall: filtered.length, ftf, online, svj, trm: trmTotal }
   }, [filtered, trm, kampoFilter])
 
-  /* ── per-kampo aggregation (only when "all") ─────────────────────────── */
-  const perKampo = useMemo(() => {
-    return KAMPOS.map(k => {
-      const kRows = rows.filter(r => normalizeKampoId(r) === k.id)
-      let ftf = 0, online = 0, svj = 0
-      kRows.forEach(r => {
-        if (r.join_type === 'Face to Face') ftf++
-        else if (r.join_type === 'Online')  online++
-        else if (r.join_type === 'SVJ')     svj++
-      })
-      return { kampo: k, total: kRows.length, ftf, online, svj, trm: trm[k.id] || 0, rows: kRows }
+  const perKampo = useMemo(() => KAMPOS.map(k => {
+    const kRows = rows.filter(r => normalizeKampoId(r) === k.id)
+    let ftf = 0, online = 0, svj = 0
+    kRows.forEach(r => {
+      if      (r.join_type === 'Face to Face') ftf++
+      else if (r.join_type === 'Online')       online++
+      else if (r.join_type === 'SVJ')          svj++
     })
-  }, [rows, trm])
+    return { kampo: k, total: kRows.length, ftf, online, svj, trm: trm[k.id] || 0, rows: kRows }
+  }), [rows, trm])
 
-  /* ── attendee list for single-kampo view ────────────────────────────── */
   const attendeeList = useMemo(() => {
     if (kampoFilter === 'all') return []
     return [...filtered].sort((a, b) => (a.member_name || '').localeCompare(b.member_name || ''))
@@ -123,7 +212,7 @@ export default function AdminAttendanceMonitor() {
   return (
     <div className="space-y-6">
 
-      {/* ── Greeting banner ──────────────────────────────────────────── */}
+      {/* ── Greeting banner ───────────────────────────────────────────── */}
       <div className="relative overflow-hidden bg-white border border-slate-200 rounded-custom p-6 shadow-sm">
         <div className="absolute inset-0 hero-shimmer opacity-60 pointer-events-none" />
         <div className="relative">
@@ -144,7 +233,7 @@ export default function AdminAttendanceMonitor() {
         </div>
       </div>
 
-      {/* ── Controls ─────────────────────────────────────────────────── */}
+      {/* ── Controls ──────────────────────────────────────────────────── */}
       <div className="flex flex-wrap items-end gap-3">
         {/* Date picker */}
         <div className="flex flex-col gap-1">
@@ -160,7 +249,7 @@ export default function AdminAttendanceMonitor() {
         {/* Kampo filter */}
         <div className="flex flex-col gap-1">
           <span className="text-xs font-semibold text-slate-500">Kampo</span>
-          <div className="inline-flex rounded-lg border border-slate-200 overflow-hidden">
+          <div className="inline-flex flex-wrap rounded-lg border border-slate-200 overflow-hidden">
             <button
               type="button"
               onClick={() => setKampoFilter('all')}
@@ -168,7 +257,7 @@ export default function AdminAttendanceMonitor() {
             >
               All Kampos
             </button>
-            {KAMPOS.map((k, i) => (
+            {KAMPOS.map(k => (
               <button
                 key={k.id}
                 type="button"
@@ -184,7 +273,7 @@ export default function AdminAttendanceMonitor() {
           </div>
         </div>
 
-        {/* Refresh button */}
+        {/* Refresh */}
         <div className="flex items-end">
           <button
             type="button"
@@ -192,10 +281,7 @@ export default function AdminAttendanceMonitor() {
             disabled={loading}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 transition disabled:opacity-50"
           >
-            <svg
-              className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`}
-              fill="none" stroke="currentColor" viewBox="0 0 24 24"
-            >
+            <svg className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
@@ -204,12 +290,12 @@ export default function AdminAttendanceMonitor() {
         </div>
       </div>
 
-      {/* ── Error ────────────────────────────────────────────────────── */}
+      {/* ── Error ─────────────────────────────────────────────────────── */}
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
       )}
 
-      {/* ── Loading skeleton ──────────────────────────────────────────── */}
+      {/* ── Spinner ───────────────────────────────────────────────────── */}
       {loading && (
         <div className="flex items-center justify-center gap-2 py-10 text-slate-400 text-sm">
           <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -222,47 +308,32 @@ export default function AdminAttendanceMonitor() {
 
       {!loading && (
         <>
-          {/* ── Summary stat cards ─────────────────────────────────────── */}
+          {/* ── Summary stat cards ────────────────────────────────────── */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <StatCard
-              label="Total today"
-              value={totals.overall}
+              name="Total today"  count={totals.overall}
+              cardCls="border-slate-200 bg-white" nameCls="text-slate-500" countCls="text-slate-900"
               pulse={totals.overall > 0}
-              colorCard="border-slate-200 bg-white"
-              colorLabel="text-slate-500"
-              colorValue="text-slate-900"
             />
             <StatCard
-              label="Face to Face"
-              value={totals.ftf}
-              colorCard={JOIN_COLORS['Face to Face'].card}
-              colorLabel={JOIN_COLORS['Face to Face'].label}
-              colorValue={JOIN_COLORS['Face to Face'].value}
+              name="Face to Face" count={totals.ftf}
+              cardCls="border-emerald-200 bg-emerald-50" nameCls="text-emerald-600" countCls="text-emerald-700"
             />
             <StatCard
-              label="Online"
-              value={totals.online}
-              colorCard={JOIN_COLORS['Online'].card}
-              colorLabel={JOIN_COLORS['Online'].label}
-              colorValue={JOIN_COLORS['Online'].value}
+              name="Online"       count={totals.online}
+              cardCls="border-indigo-200 bg-indigo-50"   nameCls="text-indigo-500"  countCls="text-indigo-700"
             />
             <StatCard
-              label="SVJ"
-              value={totals.svj}
-              colorCard={JOIN_COLORS['SVJ'].card}
-              colorLabel={JOIN_COLORS['SVJ'].label}
-              colorValue={JOIN_COLORS['SVJ'].value}
+              name="SVJ"          count={totals.svj}
+              cardCls="border-amber-200 bg-amber-50"     nameCls="text-amber-500"   countCls="text-amber-700"
             />
             <StatCard
-              label="TRM"
-              value={totals.trm}
-              colorCard="border-secondary/20 bg-secondary/5"
-              colorLabel="text-secondary/70"
-              colorValue="text-secondary"
+              name="TRM"          count={totals.trm}
+              cardCls="border-secondary/20 bg-secondary/5" nameCls="text-secondary/70" countCls="text-secondary"
             />
           </div>
 
-          {/* ── All Kampos: per-kampo breakdown ───────────────────────── */}
+          {/* ── All-kampo breakdown cards ──────────────────────────────── */}
           {kampoFilter === 'all' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {perKampo.map((pk, i) => (
@@ -270,39 +341,34 @@ export default function AdminAttendanceMonitor() {
                   key={pk.kampo.id}
                   className="bg-white border border-slate-200 rounded-custom p-5 shadow-sm"
                 >
-                  {/* Kampo header */}
-                  <div className="flex items-center justify-between mb-4">
+                  {/* Card header */}
+                  <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <span
-                        className="w-3 h-3 rounded-full shrink-0"
-                        style={{ background: KAMPO_COLORS[i] }}
-                      />
+                      <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ background: KAMPO_COLORS[i] }} />
                       <div>
                         <div className="font-bold text-slate-900">{pk.kampo.name}</div>
-                        {pk.kampo.sub && (
-                          <div className="text-[11px] text-slate-400">{pk.kampo.sub}</div>
-                        )}
+                        {pk.kampo.sub && <div className="text-[11px] text-slate-400">{pk.kampo.sub}</div>}
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0">
                       <div className="text-2xl font-black text-slate-900">{pk.total}</div>
                       <div className="text-[11px] text-slate-400">of {pk.trm} TRM</div>
                     </div>
                   </div>
 
-                  {/* Mini stat pills */}
-                  <div className="flex flex-wrap gap-2">
+                  {/* Stat pills — using separate name/count props, NO spread from JOIN_STYLE */}
+                  <div className="flex flex-wrap gap-2 mb-4">
                     {[
-                      { label: 'FTF',    value: pk.ftf,    ...JOIN_COLORS['Face to Face'] },
-                      { label: 'Online', value: pk.online, ...JOIN_COLORS['Online']       },
-                      { label: 'SVJ',    value: pk.svj,    ...JOIN_COLORS['SVJ']          },
+                      { name: 'FTF',    count: pk.ftf,    jt: 'Face to Face' },
+                      { name: 'Online', count: pk.online, jt: 'Online'       },
+                      { name: 'SVJ',    count: pk.svj,    jt: 'SVJ'          },
                     ].map(s => (
                       <div
-                        key={s.label}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${s.card} ${s.value}`}
+                        key={s.name}
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${JOIN_STYLE[s.jt].pill}`}
                       >
-                        <span className={`w-1.5 h-1.5 rounded-full ${s.label === 'FTF' ? 'bg-emerald-500' : s.label === 'Online' ? 'bg-indigo-500' : 'bg-amber-500'}`} />
-                        {s.label}: {s.value}
+                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${JOIN_STYLE[s.jt].dot}`} />
+                        {s.name}: {s.count}
                       </div>
                     ))}
                     {pk.total === 0 && (
@@ -310,9 +376,9 @@ export default function AdminAttendanceMonitor() {
                     )}
                   </div>
 
-                  {/* Progress bar (attended / TRM) */}
+                  {/* Progress bar */}
                   {pk.trm > 0 && (
-                    <div className="mt-4">
+                    <div className="mb-4">
                       <div className="flex justify-between text-[10px] text-slate-400 mb-1">
                         <span>Attendance rate</span>
                         <span>{Math.round((pk.total / pk.trm) * 100)}%</span>
@@ -328,12 +394,26 @@ export default function AdminAttendanceMonitor() {
                       </div>
                     </div>
                   )}
+
+                  {/* View Attendees button */}
+                  <button
+                    type="button"
+                    onClick={() => setModalKampo(pk)}
+                    disabled={pk.total === 0}
+                    className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-secondary/30 hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    {pk.total === 0 ? 'No attendees' : `View ${pk.total} Attendee${pk.total !== 1 ? 's' : ''}`}
+                  </button>
                 </div>
               ))}
             </div>
           )}
 
-          {/* ── Single kampo: attendee list ───────────────────────────── */}
+          {/* ── Single-kampo attendee tiles ────────────────────────────── */}
           {kampoFilter !== 'all' && (
             <div className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
@@ -349,34 +429,44 @@ export default function AdminAttendanceMonitor() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {attendeeList.map(r => (
-                    <div
-                      key={r.member_id || `${r.member_name}-${r.join_type}`}
-                      className="border border-slate-200 rounded-xl p-3 text-center hover:border-secondary/30 hover:bg-secondary/5 transition"
-                    >
-                      <img
-                        className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-slate-200"
-                        src={avatarUrl(r.member_id)}
-                        alt={r.member_name}
-                      />
-                      <div className="text-xs font-semibold text-slate-900 truncate">
-                        {initialsShortName(r.member_name || '')}
+                  {attendeeList.map(r => {
+                    const jt    = r.join_type || 'Face to Face'
+                    const style = JOIN_STYLE[jt] || JOIN_STYLE['Face to Face']
+                    const short = jt === 'Face to Face' ? 'FTF' : jt
+                    return (
+                      <div
+                        key={r.member_id || `${r.member_name}-${r.join_type}`}
+                        className="border border-slate-200 rounded-xl p-3 text-center hover:border-secondary/30 hover:bg-secondary/5 transition"
+                      >
+                        <img
+                          className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-slate-200"
+                          src={avatarUrl(r.member_id)}
+                          alt={r.member_name}
+                        />
+                        <div className="text-xs font-semibold text-slate-900 truncate">
+                          {initialsShortName(r.member_name || '')}
+                        </div>
+                        <div className={`mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${style.pill}`}>
+                          <span className={`w-1 h-1 rounded-full shrink-0 ${style.dot}`} />
+                          {short}
+                        </div>
                       </div>
-                      <div className={[
-                        'mt-0.5 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-bold',
-                        r.join_type === 'Face to Face' ? 'bg-emerald-100 text-emerald-700'
-                        : r.join_type === 'Online'     ? 'bg-indigo-100 text-indigo-700'
-                        : 'bg-amber-100 text-amber-700',
-                      ].join(' ')}>
-                        {r.join_type === 'Face to Face' ? 'FTF' : r.join_type}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
           )}
         </>
+      )}
+
+      {/* ── Attendees modal ────────────────────────────────────────────── */}
+      {modalKampo && (
+        <AttendeesModal
+          kampo={modalKampo.kampo}
+          attendees={modalKampo.rows}
+          onClose={() => setModalKampo(null)}
+        />
       )}
     </div>
   )
