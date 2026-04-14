@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast'
 import ConfirmDialog from '../components/ConfirmDialog'
 import AttendanceCharts from '../components/AttendanceCharts'
 import AttendanceComparison from '../components/AttendanceComparison'
+import AdminAttendanceMonitor from '../components/AdminAttendanceMonitor'
 import KampoAttendancePanel from '../components/KampoAttendancePanel'
 import AdminSidebar from '../components/AdminSidebar'
 import { supabase } from '../lib/supabaseClient'
@@ -38,6 +39,7 @@ const TAB_LABELS = {
   users:     'Total Users',
   analytics: 'Attendance Analytics',
   kampo:     'Kampo Attendance',
+  monitor:   'Attendance Monitor',
   accounts:  'Account Requests',
 }
 
@@ -679,6 +681,9 @@ export default function AdminDashboard() {
 
             {/* ── Kampo Attendance ─────────────────────────────────── */}
             {activeTab === 'kampo' && <KampoAttendancePanel />}
+
+            {/* ── Attendance Monitor ────────────────────────────────── */}
+            {activeTab === 'monitor' && <AdminAttendanceMonitor />}
 
             {/* ── Account Requests ─────────────────────────────────── */}
             {activeTab === 'accounts' && (

@@ -44,6 +44,19 @@ const NAV = [
     ),
   },
   {
+    id: 'monitor',
+    label: 'Attendance Monitor',
+    sub: 'Live today\'s count',
+    icon: (
+      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+          d="M9 11l3 3L22 4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+          d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+      </svg>
+    ),
+  },
+  {
     id: 'accounts',
     label: 'Account Requests',
     sub: 'Approve / Reject',
