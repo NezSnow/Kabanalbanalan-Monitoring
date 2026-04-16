@@ -11,7 +11,7 @@ import {
 } from './lib/membersService'
 import { fetchAllAttendance, insertAttendance } from './lib/attendanceService'
 import { toISODate, formatHeaderTime } from './utils/helpers'
-import { KAMPO_BY_NAME } from './constants/kampos'
+import { EKKLESIA_BY_ID } from './constants/kampos'
 
 export default function App({ onLogout }) {
   const [activeTab,       setActiveTab]       = useState('attendance')
@@ -28,7 +28,7 @@ export default function App({ onLogout }) {
   const selectedKampo = localStorage.getItem('selectedKampo') || ''
   const selectedKampoId = localStorage.getItem('selectedKampoId')
     || localStorage.getItem('kampo_id')
-    || KAMPO_BY_NAME[selectedKampo.toLowerCase()]?.id
+    || EKKLESIA_BY_ID[selectedKampo]?.id
     || ''
 
   // ── Clock ─────────────────────────────────────────────────────────────

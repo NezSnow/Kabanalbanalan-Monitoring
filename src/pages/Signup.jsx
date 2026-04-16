@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { KAMPO_BY_NAME } from '../constants/kampos'
 import { createPendingUser } from '../lib/accountService'
 
 export default function Signup() {
@@ -59,7 +58,7 @@ export default function Signup() {
         email,
         password: form.password,
         kampo,
-        kampo_id: KAMPO_BY_NAME[kampo.toLowerCase()]?.id || '',
+        kampo_id: localStorage.getItem('selectedKampoId') || '',
       })
       setSubmitting(false)
       navigate('/login', { state: { message: 'Account created successfully' } })

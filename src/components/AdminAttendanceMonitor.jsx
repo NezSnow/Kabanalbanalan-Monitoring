@@ -1,20 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { KAMPOS } from '../constants/kampos'
+import { EKKLESIAS, KAMPOS, ekklesiasForKampo } from '../constants/kampos'
 import {
   fetchAttendanceByDateAllKampos,
   fetchMemberCountsAllKampos,
+  normalizeEkklesiaId,
 } from '../lib/adminAttendanceService'
 import { avatarUrl, initialsShortName } from '../utils/helpers'
 
 /* ── helpers ──────────────────────────────────────────────────────────────── */
 function toISOToday() { return new Date().toISOString().slice(0, 10) }
-
-function normalizeKampoId(row) {
-  if (row.kampo_id) return row.kampo_id
-  const name  = (row.kampo || '').toLowerCase().trim()
-  const found = KAMPOS.find(k => k.name.toLowerCase() === name || k.id === name)
-  return found?.id ?? null
-}
 
 /* ── Color tokens (no 'label' or 'value' keys — avoids spread conflicts) ── */
 const JOIN_STYLE = {
@@ -35,7 +29,9 @@ const JOIN_STYLE = {
   },
 }
 
-const KAMPO_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ec4899']
+const EKKLESIA_COLORS = [
+  '#6366f1', '#818cf8', '#22c55e', '#f59e0b', '#fb923c', '#ec4899', '#a78bfa',
+]
 
 /* ── Stat card ─────────────────────────────────────────────────────────────── */
 function StatCard({ name, count, cardCls, nameCls, countCls, pulse = false }) {
@@ -176,7 +172,7 @@ export default function AdminAttendanceMonitor() {
   /* ── derived data ────────────────────────────────────────────────────── */
   const filtered = useMemo(() => {
     if (kampoFilter === 'all') return rows
-    return rows.filter(r => normalizeKampoId(r) === kampoFilter)
+    return rows.filter(r => normalizeEkklesiaId(r) === kampoFilter)
   }, [rows, kampoFilter])
 
   const totals = useMemo(() => {
@@ -187,20 +183,20 @@ export default function AdminAttendanceMonitor() {
       else if (r.join_type === 'SVJ')          svj++
     })
     const trmTotal = kampoFilter === 'all'
-      ? KAMPOS.reduce((s, k) => s + (trm[k.id] || 0), 0)
+      ? EKKLESIAS.reduce((s, e) => s + (trm[e.id] || 0), 0)
       : (trm[kampoFilter] || 0)
     return { overall: filtered.length, ftf, online, svj, trm: trmTotal }
   }, [filtered, trm, kampoFilter])
 
-  const perKampo = useMemo(() => KAMPOS.map(k => {
-    const kRows = rows.filter(r => normalizeKampoId(r) === k.id)
+  const perKampo = useMemo(() => EKKLESIAS.map(e => {
+    const kRows = rows.filter(r => normalizeEkklesiaId(r) === e.id)
     let ftf = 0, online = 0, svj = 0
     kRows.forEach(r => {
       if      (r.join_type === 'Face to Face') ftf++
       else if (r.join_type === 'Online')       online++
       else if (r.join_type === 'SVJ')          svj++
     })
-    return { kampo: k, total: kRows.length, ftf, online, svj, trm: trm[k.id] || 0, rows: kRows }
+    return { kampo: e, total: kRows.length, ftf, online, svj, trm: trm[e.id] || 0, rows: kRows }
   }), [rows, trm])
 
   const attendeeList = useMemo(() => {
@@ -246,29 +242,34 @@ export default function AdminAttendanceMonitor() {
           />
         </div>
 
-        {/* Kampo filter */}
+        {/* Ekklesia filter */}
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-slate-500">Kampo</span>
-          <div className="inline-flex flex-wrap rounded-lg border border-slate-200 overflow-hidden">
+          <span className="text-xs font-semibold text-slate-500">Ekklesia</span>
+          <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
               onClick={() => setKampoFilter('all')}
-              className={`px-3 py-1.5 text-xs font-semibold transition ${kampoFilter === 'all' ? 'bg-secondary text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${kampoFilter === 'all' ? 'bg-secondary text-white border-secondary' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
             >
-              All Kampos
+              All
             </button>
-            {KAMPOS.map(k => (
-              <button
-                key={k.id}
-                type="button"
-                onClick={() => setKampoFilter(k.id)}
-                className={[
-                  'px-3 py-1.5 text-xs font-semibold border-l border-slate-200 transition',
-                  kampoFilter === k.id ? 'bg-secondary text-white' : 'bg-white text-slate-600 hover:bg-slate-50',
-                ].join(' ')}
-              >
-                {k.name}
-              </button>
+            {KAMPOS.map(kampo => (
+              <div key={kampo.id} className="flex items-center gap-1">
+                <span className="text-[10px] text-slate-400 font-semibold px-1">{kampo.name}:</span>
+                {ekklesiasForKampo(kampo.id).map(e => (
+                  <button
+                    key={e.id}
+                    type="button"
+                    onClick={() => setKampoFilter(e.id)}
+                    className={[
+                      'px-3 py-1.5 text-xs font-semibold rounded-lg border transition',
+                      kampoFilter === e.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
+                    ].join(' ')}
+                  >
+                    {e.name}
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         </div>
@@ -344,7 +345,7 @@ export default function AdminAttendanceMonitor() {
                   {/* Card header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ background: KAMPO_COLORS[i] }} />
+                      <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ background: EKKLESIA_COLORS[i] }} />
                       <div>
                         <div className="font-bold text-slate-900">{pk.kampo.name}</div>
                         {pk.kampo.sub && <div className="text-[11px] text-slate-400">{pk.kampo.sub}</div>}
@@ -388,7 +389,7 @@ export default function AdminAttendanceMonitor() {
                           className="h-full rounded-full transition-all duration-500"
                           style={{
                             width: `${Math.min(100, Math.round((pk.total / pk.trm) * 100))}%`,
-                            background: KAMPO_COLORS[i],
+                            background: EKKLESIA_COLORS[i],
                           }}
                         />
                       </div>

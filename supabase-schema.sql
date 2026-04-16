@@ -13,8 +13,8 @@ create extension if not exists "uuid-ossp";
 create table if not exists members (
   id             uuid        primary key default uuid_generate_v4(),
   name           text        not null,
-  kampo_id       text        not null default 'shiloh',
-  kampo          text        not null default 'Shiloh',
+  kampo_id       text        not null default 'shiloh_1',   -- ekklesia id
+  kampo          text        not null default 'Shiloh 1',   -- ekklesia display name
   spiritual_name text        not null default '',
   gender         text        not null default 'male'
                              check (gender in ('male', 'female')),
@@ -24,22 +24,11 @@ create table if not exists members (
   created_at     timestamptz not null default now()
 );
 
--- Add kampo columns for existing projects
-alter table members add column if not exists kampo_id text not null default 'shiloh';
-alter table members add column if not exists kampo text not null default 'Shiloh';
-update members set kampo = 'Shiloh' where kampo is null or kampo = '';
-update members
-set kampo_id = case lower(coalesce(kampo, ''))
-  when 'shiloh' then 'shiloh'
-  when 'tagum city' then 'tagum'
-  when 'paquibato district' then 'paquibato'
-  when 'monkayo' then 'monkayo'
-  else 'shiloh'
-end
-where kampo_id is null or kampo_id = '';
+-- Add columns for existing projects
+alter table members add column if not exists kampo_id text not null default 'shiloh_1';
+alter table members add column if not exists kampo    text not null default 'Shiloh 1';
 
--- Row Level Security — allow all operations for the anon role
--- (You can tighten this later with auth.uid() checks)
+-- Row Level Security
 alter table members enable row level security;
 
 create policy "members: public read"
@@ -61,8 +50,8 @@ create policy "members: public delete"
 create table if not exists attendance (
   id           uuid        primary key default uuid_generate_v4(),
   date_iso     text        not null,               -- 'YYYY-MM-DD'
-  kampo_id     text        not null default 'shiloh',
-  kampo        text        not null default 'Shiloh',
+  kampo_id     text        not null default 'shiloh_1',   -- ekklesia id
+  kampo        text        not null default 'Shiloh 1',   -- ekklesia display name
   join_type    text        not null
                check (join_type in ('Online', 'Face to Face', 'SVJ')),
   member_id    uuid        references members(id) on delete set null,
@@ -74,26 +63,16 @@ create table if not exists attendance (
   created_at   timestamptz not null default now()
 );
 
--- Add kampo columns for existing projects
-alter table attendance add column if not exists kampo_id text not null default 'shiloh';
-alter table attendance add column if not exists kampo text not null default 'Shiloh';
-update attendance set kampo = 'Shiloh' where kampo is null or kampo = '';
-update attendance
-set kampo_id = case lower(coalesce(kampo, ''))
-  when 'shiloh' then 'shiloh'
-  when 'tagum city' then 'tagum'
-  when 'paquibato district' then 'paquibato'
-  when 'monkayo' then 'monkayo'
-  else 'shiloh'
-end
-where kampo_id is null or kampo_id = '';
+-- Add columns for existing projects
+alter table attendance add column if not exists kampo_id text not null default 'shiloh_1';
+alter table attendance add column if not exists kampo    text not null default 'Shiloh 1';
 
--- Index for fast per-date lookups
-create index if not exists idx_attendance_date_iso on attendance (date_iso);
-create index if not exists idx_members_kampo_id on members (kampo_id);
-create index if not exists idx_attendance_kampo_id_date on attendance (kampo_id, date_iso);
-create index if not exists idx_members_kampo on members (kampo);
-create index if not exists idx_attendance_kampo_date on attendance (kampo, date_iso);
+-- Indexes
+create index if not exists idx_attendance_date_iso       on attendance (date_iso);
+create index if not exists idx_members_kampo_id          on members (kampo_id);
+create index if not exists idx_attendance_kampo_id_date  on attendance (kampo_id, date_iso);
+create index if not exists idx_members_kampo             on members (kampo);
+create index if not exists idx_attendance_kampo_date     on attendance (kampo, date_iso);
 
 -- Row Level Security
 alter table attendance enable row level security;
@@ -104,6 +83,7 @@ create policy "attendance: public read"
 create policy "attendance: public insert"
   on attendance for insert with check (true);
 
+
 -- ============================================================
 -- TABLE: app_users (signup + approval workflow)
 -- ============================================================
@@ -112,20 +92,17 @@ create table if not exists app_users (
   name         text        not null,
   email        text        not null unique,
   password     text        not null,
-  kampo_id     text        not null default 'shiloh',
-  kampo        text        not null default 'Shiloh',
+  kampo_id     text        not null default 'shiloh_1',   -- ekklesia id
+  kampo        text        not null default 'Shiloh 1',   -- ekklesia display name
   status       text        not null default 'pending'
                check (status in ('pending', 'approved', 'rejected')),
   created_at   timestamptz not null default now(),
   approved_at  timestamptz
 );
 
-create index if not exists idx_app_users_status on app_users (status);
+create index if not exists idx_app_users_status   on app_users (status);
 create index if not exists idx_app_users_kampo_id on app_users (kampo_id);
 
--- ── Enable Supabase Realtime on app_users ──────────────────────────────
--- Run this so the admin dashboard receives live INSERT events.
--- Alternatively: Supabase Dashboard → Database → Replication → app_users ✓
 alter publication supabase_realtime add table app_users;
 
 alter table app_users enable row level security;
@@ -141,9 +118,7 @@ create policy "app_users: public update"
 
 
 -- ============================================================
--- STORAGE BUCKET: member-photos
--- Run this ONLY if you want photo uploads (optional).
--- Supabase Storage UI is also fine.
+-- STORAGE BUCKET: member-photos  (optional)
 -- ============================================================
 insert into storage.buckets (id, name, public)
 values ('member-photos', 'member-photos', true)
@@ -159,12 +134,44 @@ create policy "photos: public upload"
 
 
 -- ============================================================
--- SAMPLE DATA (optional — delete if you have real members)
+-- DATA MIGRATION
+-- Run this section ONCE in the Supabase SQL Editor to migrate
+-- existing data to the new ekklesia structure.
 -- ============================================================
-insert into members (name, kampo_id, kampo, spiritual_name, gender, is_visitor, short) values
-  ('Argie Lasanday',  'shiloh', 'Shiloh', 'Aaron',  'male',   false, 'Argie L.'),
-  ('Sarah Williams',  'shiloh', 'Shiloh', 'Sharon', 'female', false, 'Sarah W.'),
-  ('Michael Reyes',   'shiloh', 'Shiloh', 'Mikael', 'male',   false, 'Michael R.'),
-  ('Elena Garcia',    'shiloh', 'Shiloh', 'Ely',    'female', false, 'Elena G.'),
-  ('David Kim',       'shiloh', 'Shiloh', 'Davi',   'male',   false, 'David K.')
-on conflict do nothing;
+
+-- 1. Clear all attendance records (fresh start as requested)
+delete from attendance;
+
+-- 2. Migrate members to new ekklesia ids
+--    Shiloh      → Shiloh 1
+update members set kampo_id = 'shiloh_1',  kampo = 'Shiloh 1'
+  where kampo_id in ('shiloh') or lower(kampo) in ('shiloh');
+
+--    Paquibato   → Salapawan
+update members set kampo_id = 'salapawan', kampo = 'Salapawan'
+  where kampo_id in ('paquibato') or lower(kampo) in ('paquibato district', 'paquibato');
+
+--    Tagum       → Tagum City
+update members set kampo_id = 'tagum_city', kampo = 'Tagum City'
+  where kampo_id in ('tagum') or lower(kampo) in ('tagum city', 'tagum');
+
+--    Monkayo     → Rizal
+update members set kampo_id = 'rizal', kampo = 'Rizal'
+  where kampo_id in ('monkayo') or lower(kampo) in ('monkayo');
+
+-- 3. Migrate app_users the same way
+update app_users set kampo_id = 'shiloh_1',  kampo = 'Shiloh 1'
+  where kampo_id in ('shiloh') or lower(kampo) in ('shiloh');
+
+update app_users set kampo_id = 'salapawan', kampo = 'Salapawan'
+  where kampo_id in ('paquibato') or lower(kampo) in ('paquibato district', 'paquibato');
+
+update app_users set kampo_id = 'tagum_city', kampo = 'Tagum City'
+  where kampo_id in ('tagum') or lower(kampo) in ('tagum city', 'tagum');
+
+update app_users set kampo_id = 'rizal', kampo = 'Rizal'
+  where kampo_id in ('monkayo') or lower(kampo) in ('monkayo');
+
+-- ============================================================
+-- END OF MIGRATION
+-- ============================================================

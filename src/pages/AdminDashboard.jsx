@@ -38,7 +38,7 @@ const TAB_LABELS = {
   overview:  'Overview',
   users:     'Total Users',
   analytics: 'Attendance Analytics',
-  kampo:     'Kampo Attendance',
+  kampo:     'Ekklesia Attendance',
   monitor:   'Attendance Monitor',
   accounts:  'Account Requests',
 }

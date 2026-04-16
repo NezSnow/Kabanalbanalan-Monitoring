@@ -1,13 +1,13 @@
 import { supabase } from './supabaseClient'
-import { KAMPOS } from '../constants/kampos'
+import { EKKLESIAS } from '../constants/kampos'
 
-const KAMPO_NAME_BY_ID = KAMPOS.reduce((acc, k) => {
-  acc[k.id] = k.name
+const EKKLESIA_NAME_BY_ID = EKKLESIAS.reduce((acc, e) => {
+  acc[e.id] = e.name
   return acc
 }, {})
 
-function kampoNameFromId(kampoId) {
-  return KAMPO_NAME_BY_ID[kampoId] || 'Shiloh'
+function kampoNameFromId(ekklesiaId) {
+  return EKKLESIA_NAME_BY_ID[ekklesiaId] || ''
 }
 
 function isMissingKampoIdColumn(error) {

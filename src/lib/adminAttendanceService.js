@@ -1,17 +1,29 @@
 import { supabase } from './supabaseClient'
-import { KAMPOS } from '../constants/kampos'
+import { EKKLESIAS, EKKLESIA_BY_ID, KAMPO_BY_ID } from '../constants/kampos'
+
+/**
+ * Normalise a raw attendance/member row to its ekklesia id.
+ * Handles both new rows (kampo_id = ekklesia id) and old-style rows.
+ */
+export function normalizeEkklesiaId(row) {
+  const kid = row.kampo_id || ''
+  if (EKKLESIA_BY_ID[kid]) return kid
+  // legacy name fallback
+  const name = (row.kampo || '').toLowerCase().trim()
+  const found = EKKLESIAS.find(
+    e => e.name.toLowerCase() === name || e.id === name
+  )
+  return found?.id ?? null
+}
 
 /**
  * Fetch all attendance records between two ISO date strings (inclusive),
- * across ALL kampos — used by the admin analytics charts.
- *
- * Returns an array of raw Supabase rows:
- *   { date_iso, kampo_id, kampo, member_id }
+ * across ALL ekklesias — used by the admin analytics charts.
  */
 export async function fetchAttendanceForDateRange(startDate, endDate) {
   const { data, error } = await supabase
     .from('attendance')
-    .select('date_iso, kampo_id, kampo, member_id')
+    .select('date_iso, kampo_id, kampo, member_id, join_type')
     .gte('date_iso', startDate)
     .lte('date_iso', endDate)
 
@@ -20,10 +32,8 @@ export async function fetchAttendanceForDateRange(startDate, endDate) {
 }
 
 /**
- * Fetch all attendance records for a single date across ALL kampos.
+ * Fetch all attendance records for a single date across ALL ekklesias.
  * Includes join_type so admin can break down Online / Face to Face / SVJ.
- *
- * Returns rows: { kampo_id, kampo, join_type, member_id, member_name }
  */
 export async function fetchAttendanceByDateAllKampos(dateISO) {
   const { data, error } = await supabase
@@ -37,8 +47,8 @@ export async function fetchAttendanceByDateAllKampos(dateISO) {
 }
 
 /**
- * Fetch Total Registered Members (TRM) per kampo.
- * Returns an object keyed by kampo_id: { shiloh: 12, tagum: 8, … }
+ * Fetch Total Registered Members (TRM) per ekklesia.
+ * Returns an object keyed by ekklesia id: { shiloh_1: 12, tagum_city: 8, … }
  */
 export async function fetchMemberCountsAllKampos() {
   const { data, error } = await supabase
@@ -48,10 +58,11 @@ export async function fetchMemberCountsAllKampos() {
   if (error) throw error
 
   const counts = {}
-  KAMPOS.forEach(k => { counts[k.id] = 0 })
+  EKKLESIAS.forEach(e => { counts[e.id] = 0 })
   ;(data || []).forEach(row => {
-    if (row.kampo_id && counts[row.kampo_id] !== undefined) {
-      counts[row.kampo_id]++
+    const eid = row.kampo_id
+    if (eid && counts[eid] !== undefined) {
+      counts[eid]++
     }
   })
   return counts
