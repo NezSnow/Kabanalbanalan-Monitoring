@@ -213,11 +213,14 @@ function MemberFormModal({ editingMember, onClose, onAdd, onUpdate }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
-  const [manageQuery,  setManageQuery]  = useState('')
-  const [modalOpen,    setModalOpen]    = useState(false)
-  const [editingMember, setEditingMember] = useState(null)
-  const [deleteTarget, setDeleteTarget] = useState(null)
-  const [deleting,     setDeleting]     = useState(false)
+  const [manageQuery,    setManageQuery]    = useState('')
+  const [modalOpen,      setModalOpen]      = useState(false)
+  const [editingMember,  setEditingMember]  = useState(null)
+  const [deleteTarget,   setDeleteTarget]   = useState(null)   // single delete
+  const [deleting,       setDeleting]       = useState(false)
+  const [selected,       setSelected]       = useState(new Set()) // bulk select
+  const [bulkConfirm,    setBulkConfirm]    = useState(false)
+  const [bulkDeleting,   setBulkDeleting]   = useState(false)
 
   const filtered = useMemo(() => {
     const q = manageQuery.trim().toLowerCase()
@@ -226,6 +229,34 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
     )
     return q ? sorted.filter(m => m.name.toLowerCase().includes(q)) : sorted
   }, [members, manageQuery])
+
+  const allSelected  = filtered.length > 0 && filtered.every(m => selected.has(m.id))
+  const someSelected = filtered.some(m => selected.has(m.id))
+  const selectedCount = [...selected].filter(id => members.some(m => m.id === id)).length
+
+  function toggleSelectAll() {
+    if (allSelected) {
+      setSelected(prev => {
+        const next = new Set(prev)
+        filtered.forEach(m => next.delete(m.id))
+        return next
+      })
+    } else {
+      setSelected(prev => {
+        const next = new Set(prev)
+        filtered.forEach(m => next.add(m.id))
+        return next
+      })
+    }
+  }
+
+  function toggleOne(id) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   function openAdd() {
     setEditingMember(null)
@@ -247,11 +278,27 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
     setDeleting(true)
     try {
       await onDelete(deleteTarget.id)
+      setSelected(prev => { const n = new Set(prev); n.delete(deleteTarget.id); return n })
       setDeleteTarget(null)
     } catch (err) {
       alert(`Error removing member: ${err.message}`)
     } finally {
       setDeleting(false)
+    }
+  }
+
+  async function confirmBulkDelete() {
+    setBulkDeleting(true)
+    try {
+      for (const id of selected) {
+        await onDelete(id)
+      }
+      setSelected(new Set())
+      setBulkConfirm(false)
+    } catch (err) {
+      alert(`Error removing members: ${err.message}`)
+    } finally {
+      setBulkDeleting(false)
     }
   }
 
@@ -261,6 +308,8 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
 
         {/* ── Member list ── */}
         <section className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6">
+
+          {/* Header row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
             <div>
               <div className="text-lg font-bold">Members</div>
@@ -283,47 +332,109 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
             </div>
           </div>
 
+          {/* ── Bulk-action bar (visible when any selected) ── */}
+          {someSelected && (
+            <div className="flex items-center justify-between gap-3 mb-3 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200">
+              <span className="text-sm font-semibold text-red-700">
+                {selectedCount} member{selectedCount !== 1 ? 's' : ''} selected
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-red-200 text-red-500 hover:bg-red-100 transition"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkConfirm(true)}
+                  className="px-3 py-1.5 text-xs font-bold rounded-lg bg-red-500 text-white hover:bg-red-600 active:scale-[0.98] transition shadow-sm"
+                >
+                  Remove Selected
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Select-all row ── */}
+          {filtered.length > 0 && (
+            <div className="flex items-center gap-3 py-2 border-b border-slate-200 mb-1">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleSelectAll}
+                className="w-4 h-4 rounded border-slate-300 accent-primary cursor-pointer"
+              />
+              <span className="text-xs font-semibold text-slate-500 select-none">
+                {allSelected ? 'Deselect all' : 'Select all'}
+                {filtered.length !== members.length && ` (${filtered.length} shown)`}
+              </span>
+            </div>
+          )}
+
+          {/* ── Member rows ── */}
           <div className="divide-y divide-slate-100">
-            {filtered.map(m => (
-              <div key={m.id} className="py-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <img
-                    className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
-                    src={m.img || avatarUrl(m.id)}
-                    alt={m.name}
+            {filtered.map(m => {
+              const isChecked = selected.has(m.id)
+              return (
+                <div
+                  key={m.id}
+                  className={[
+                    'py-3 flex items-center gap-3 transition-colors',
+                    isChecked ? 'bg-red-50/60' : '',
+                  ].join(' ')}
+                >
+                  {/* Checkbox */}
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleOne(m.id)}
+                    className="w-4 h-4 rounded border-slate-300 accent-primary cursor-pointer shrink-0"
                   />
-                  <div className="min-w-0">
-                    <div className="font-semibold truncate">
-                      {m.name}
-                      {m.isVisitor && (
-                        <span className="ml-2 text-xs text-secondary font-semibold">(Visitor)</span>
-                      )}
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      {m.gender === 'female' ? 'Female' : 'Male'} • Tile:{' '}
-                      {m.short || initialsShortName(m.name)}
-                      {m.spiritualName ? ` • Spiritual: ${m.spiritualName}` : ''}
+
+                  {/* Avatar + info */}
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <img
+                      className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
+                      src={m.img || avatarUrl(m.id)}
+                      alt={m.name}
+                    />
+                    <div className="min-w-0">
+                      <div className="font-semibold truncate">
+                        {m.name}
+                        {m.isVisitor && (
+                          <span className="ml-2 text-xs text-secondary font-semibold">(Visitor)</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-slate-500">
+                        {m.gender === 'female' ? 'Female' : 'Male'} • Tile:{' '}
+                        {m.short || initialsShortName(m.name)}
+                        {m.spiritualName ? ` • Spiritual: ${m.spiritualName}` : ''}
+                      </div>
                     </div>
                   </div>
+
+                  {/* Actions */}
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition"
+                      onClick={() => openEdit(m)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 text-sm rounded-lg border border-secondary/30 text-secondary hover:bg-secondary/5 transition"
+                      onClick={() => setDeleteTarget(m)}
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 text-sm rounded-lg border border-slate-200 hover:bg-slate-50 transition"
-                    onClick={() => openEdit(m)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 text-sm rounded-lg border border-secondary/30 text-secondary hover:bg-secondary/5 transition"
-                    onClick={() => setDeleteTarget(m)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
             {!filtered.length && (
               <div className="py-10 text-center text-slate-500 text-sm">No members found.</div>
             )}
@@ -341,7 +452,7 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
         />
       )}
 
-      {/* ── Delete confirmation ── */}
+      {/* ── Single delete confirmation ── */}
       <ConfirmDialog
         open={!!deleteTarget}
         title="Remove Member"
@@ -352,6 +463,19 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
         onCancel={() => !deleting && setDeleteTarget(null)}
         danger
         busy={deleting}
+      />
+
+      {/* ── Bulk delete confirmation ── */}
+      <ConfirmDialog
+        open={bulkConfirm}
+        title="Remove Selected Members"
+        message={`Remove ${selectedCount} selected member${selectedCount !== 1 ? 's' : ''}? This cannot be undone.`}
+        confirmLabel={bulkDeleting ? 'Removing…' : `Remove ${selectedCount}`}
+        cancelLabel="Cancel"
+        onConfirm={confirmBulkDelete}
+        onCancel={() => !bulkDeleting && setBulkConfirm(false)}
+        danger
+        busy={bulkDeleting}
       />
     </main>
   )
