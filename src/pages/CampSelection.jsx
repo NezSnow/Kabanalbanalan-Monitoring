@@ -147,20 +147,23 @@ export default function CampSelection() {
           {/* ── STEP 2: Select Ekklesia ───────────────────────────── */}
           {selectedKampo && (
             <>
-              <div className="text-center mb-8 camp-fade-up">
-                {/* Back button */}
+              {/* Back button — its own row, left-aligned */}
+              <div className="mb-6 camp-fade-up">
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/70 hover:text-white mb-5 transition-colors"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/70 hover:text-white transition-colors"
                 >
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                   </svg>
                   Back to Kampo selection
                 </button>
+              </div>
 
-                <div className="relative inline-flex items-center justify-center w-20 h-20 mb-5">
+              {/* Hero — fully centered */}
+              <div className="flex flex-col items-center text-center mb-8 camp-fade-up">
+                <div className="relative inline-flex items-center justify-center w-20 h-20 mb-4">
                   <div className="absolute inset-0 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 animate-pulse" />
                   <div className="absolute inset-2 rounded-full bg-white/10 border border-white/20" />
                   <svg className="relative h-9 w-9 text-white drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,13 +172,20 @@ export default function CampSelection() {
                   </svg>
                 </div>
 
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white/80 text-xs font-semibold mb-3 tracking-wide">
+                {/* Kampo badge centered below icon */}
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 border border-white/30 text-white/80 text-xs font-semibold mb-4 tracking-wide">
+                  <svg className="h-3 w-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                      d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
                   {selectedKampo.name}
                 </div>
+
                 <h1 className="text-3xl sm:text-4xl font-black text-white drop-shadow-lg tracking-tight leading-none">
                   Select Your Ekklesia
                 </h1>
-                <p className="mt-2 text-white/90 text-sm sm:text-base font-medium tracking-wide">
+                <p className="mt-2 text-white/80 text-sm font-medium tracking-wide">
                   Choose your congregation to proceed to login
                 </p>
               </div>
