@@ -141,7 +141,11 @@ export default function AdminAttendanceMonitor() {
   const [loading,     setLoading]     = useState(true)
   const [error,       setError]       = useState(null)
   const [lastRefresh, setLastRefresh] = useState(null)
-  const [modalKampo,  setModalKampo]  = useState(null) // { kampo, rows }
+  const [modalKampo,  setModalKampo]  = useState(null)
+
+  /* ── filter mode helpers ─────────────────────────────────────────────── */
+  const filterKampo = KAMPOS.find(k => k.id === kampoFilter) || null   // kampo-level
+  const filterEkk   = EKKLESIAS.find(e => e.id === kampoFilter) || null // ekklesia-level
 
   /* ── fetch ────────────────────────────────────────────────────────────── */
   const load = useCallback(async (silent = false) => {
@@ -159,11 +163,7 @@ export default function AdminAttendanceMonitor() {
   }, [date])
 
   useEffect(() => { load() }, [load])
-
-  useEffect(() => {
-    fetchMemberCountsAllKampos().then(setTrm).catch(() => {})
-  }, [])
-
+  useEffect(() => { fetchMemberCountsAllKampos().then(setTrm).catch(() => {}) }, [])
   useEffect(() => {
     const id = setInterval(() => load(true), 30_000)
     return () => clearInterval(id)
@@ -172,8 +172,12 @@ export default function AdminAttendanceMonitor() {
   /* ── derived data ────────────────────────────────────────────────────── */
   const filtered = useMemo(() => {
     if (kampoFilter === 'all') return rows
+    if (filterKampo) {
+      const ids = ekklesiasForKampo(filterKampo.id).map(e => e.id)
+      return rows.filter(r => ids.includes(normalizeEkklesiaId(r)))
+    }
     return rows.filter(r => normalizeEkklesiaId(r) === kampoFilter)
-  }, [rows, kampoFilter])
+  }, [rows, kampoFilter, filterKampo])
 
   const totals = useMemo(() => {
     let ftf = 0, online = 0, svj = 0
@@ -182,23 +186,47 @@ export default function AdminAttendanceMonitor() {
       else if (r.join_type === 'Online')       online++
       else if (r.join_type === 'SVJ')          svj++
     })
-    const trmTotal = kampoFilter === 'all'
-      ? EKKLESIAS.reduce((s, e) => s + (trm[e.id] || 0), 0)
-      : (trm[kampoFilter] || 0)
+    let trmTotal
+    if (kampoFilter === 'all') {
+      trmTotal = EKKLESIAS.reduce((s, e) => s + (trm[e.id] || 0), 0)
+    } else if (filterKampo) {
+      trmTotal = ekklesiasForKampo(filterKampo.id).reduce((s, e) => s + (trm[e.id] || 0), 0)
+    } else {
+      trmTotal = trm[kampoFilter] || 0
+    }
     return { overall: filtered.length, ftf, online, svj, trm: trmTotal }
-  }, [filtered, trm, kampoFilter])
+  }, [filtered, trm, kampoFilter, filterKampo])
 
-  const perKampo = useMemo(() => EKKLESIAS.map(e => {
-    const kRows = rows.filter(r => normalizeEkklesiaId(r) === e.id)
+  // Per-KAMPO summary cards (shown in "All" view)
+  const perKampoSummary = useMemo(() => KAMPOS.map(k => {
+    const ekks  = ekklesiasForKampo(k.id)
+    const kRows = rows.filter(r => ekks.some(e => e.id === normalizeEkklesiaId(r)))
     let ftf = 0, online = 0, svj = 0
     kRows.forEach(r => {
       if      (r.join_type === 'Face to Face') ftf++
       else if (r.join_type === 'Online')       online++
       else if (r.join_type === 'SVJ')          svj++
     })
-    return { kampo: e, total: kRows.length, ftf, online, svj, trm: trm[e.id] || 0, rows: kRows }
+    const kampoTrm = ekks.reduce((s, e) => s + (trm[e.id] || 0), 0)
+    return { kampo: k, ekks, total: kRows.length, ftf, online, svj, trm: kampoTrm, rows: kRows }
   }), [rows, trm])
 
+  // Per-EKKLESIA cards (shown in kampo-level view)
+  const perEkklesiaInKampo = useMemo(() => {
+    if (!filterKampo) return []
+    return ekklesiasForKampo(filterKampo.id).map(e => {
+      const eRows = rows.filter(r => normalizeEkklesiaId(r) === e.id)
+      let ftf = 0, online = 0, svj = 0
+      eRows.forEach(r => {
+        if      (r.join_type === 'Face to Face') ftf++
+        else if (r.join_type === 'Online')       online++
+        else if (r.join_type === 'SVJ')          svj++
+      })
+      return { ekklesia: e, total: eRows.length, ftf, online, svj, trm: trm[e.id] || 0, rows: eRows }
+    })
+  }, [rows, trm, filterKampo])
+
+  // Attendee list for ekklesia view (or kampo view combined)
   const attendeeList = useMemo(() => {
     if (kampoFilter === 'all') return []
     return [...filtered].sort((a, b) => (a.member_name || '').localeCompare(b.member_name || ''))
@@ -242,10 +270,12 @@ export default function AdminAttendanceMonitor() {
           />
         </div>
 
-        {/* Ekklesia filter */}
-        <div className="flex flex-col gap-1">
-          <span className="text-xs font-semibold text-slate-500">Ekklesia</span>
-          <div className="flex flex-wrap gap-1.5">
+        {/* Filter */}
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold text-slate-500">Filter by Kampo / Ekklesia</span>
+          <div className="flex flex-wrap items-center gap-1.5">
+
+            {/* All */}
             <button
               type="button"
               onClick={() => setKampoFilter('all')}
@@ -253,9 +283,30 @@ export default function AdminAttendanceMonitor() {
             >
               All
             </button>
+
+            <span className="text-slate-200 text-sm font-light">|</span>
+
+            {/* Kampo buttons + their ekklesias */}
             {KAMPOS.map(kampo => (
               <div key={kampo.id} className="flex items-center gap-1">
-                <span className="text-[10px] text-slate-400 font-semibold px-1">{kampo.name}:</span>
+                {/* Clickable kampo name = province total */}
+                <button
+                  type="button"
+                  onClick={() => setKampoFilter(kampo.id)}
+                  className={[
+                    'px-3 py-1.5 text-xs font-bold rounded-lg border transition',
+                    kampoFilter === kampo.id
+                      ? 'bg-primary text-white border-primary'
+                      : 'bg-primary/8 text-primary border-primary/30 hover:bg-primary/15',
+                  ].join(' ')}
+                  title={`View total for ${kampo.name}`}
+                >
+                  {kampo.name}
+                </button>
+                <svg className="h-3 w-3 text-slate-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                </svg>
+                {/* Individual ekklesias */}
                 {ekklesiasForKampo(kampo.id).map(e => (
                   <button
                     key={e.id}
@@ -263,12 +314,15 @@ export default function AdminAttendanceMonitor() {
                     onClick={() => setKampoFilter(e.id)}
                     className={[
                       'px-3 py-1.5 text-xs font-semibold rounded-lg border transition',
-                      kampoFilter === e.id ? 'bg-secondary text-white border-secondary' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
+                      kampoFilter === e.id
+                        ? 'bg-secondary text-white border-secondary'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50',
                     ].join(' ')}
                   >
                     {e.name}
                   </button>
                 ))}
+                <span className="text-slate-200 text-sm font-light mx-1">|</span>
               </div>
             ))}
           </div>
@@ -310,6 +364,24 @@ export default function AdminAttendanceMonitor() {
       {!loading && (
         <>
           {/* ── Summary stat cards ────────────────────────────────────── */}
+          {/* Active filter label */}
+          {kampoFilter !== 'all' && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400">Showing results for:</span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-secondary/10 border border-secondary/20 text-secondary text-xs font-bold">
+                {filterKampo ? filterKampo.name : filterEkk?.name}
+                {filterKampo && <span className="text-secondary/60 font-normal ml-1">— all ekklesias combined</span>}
+              </span>
+              <button
+                type="button"
+                onClick={() => setKampoFilter('all')}
+                className="text-xs text-slate-400 hover:text-slate-600 underline transition ml-1"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
             <StatCard
               name="Total today"  count={totals.overall}
@@ -329,104 +401,228 @@ export default function AdminAttendanceMonitor() {
               cardCls="border-amber-200 bg-amber-50"     nameCls="text-amber-500"   countCls="text-amber-700"
             />
             <StatCard
-              name="TRM"          count={totals.trm}
+              name={filterKampo ? `TRM · ${filterKampo.name}` : filterEkk ? `TRM · ${filterEkk.name}` : 'TRM · All'}
+              count={totals.trm}
               cardCls="border-secondary/20 bg-secondary/5" nameCls="text-secondary/70" countCls="text-secondary"
             />
           </div>
 
-          {/* ── All-kampo breakdown cards ──────────────────────────────── */}
+          {/* ════════════════════════════════════════════════════
+              VIEW A: All → 3 Kampo summary cards (clickable)
+          ════════════════════════════════════════════════════ */}
           {kampoFilter === 'all' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {perKampo.map((pk, i) => (
-                <div
-                  key={pk.kampo.id}
-                  className="bg-white border border-slate-200 rounded-custom p-5 shadow-sm"
-                >
-                  {/* Card header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full shrink-0 mt-0.5" style={{ background: EKKLESIA_COLORS[i] }} />
-                      <div>
-                        <div className="font-bold text-slate-900">{pk.kampo.name}</div>
-                        {pk.kampo.sub && <div className="text-[11px] text-slate-400">{pk.kampo.sub}</div>}
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-2xl font-black text-slate-900">{pk.total}</div>
-                      <div className="text-[11px] text-slate-400">of {pk.trm} TRM</div>
-                    </div>
-                  </div>
-
-                  {/* Stat pills — using separate name/count props, NO spread from JOIN_STYLE */}
-                  <div className="flex flex-wrap gap-2 mb-4">
-                    {[
-                      { name: 'FTF',    count: pk.ftf,    jt: 'Face to Face' },
-                      { name: 'Online', count: pk.online, jt: 'Online'       },
-                      { name: 'SVJ',    count: pk.svj,    jt: 'SVJ'          },
-                    ].map(s => (
-                      <div
-                        key={s.name}
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${JOIN_STYLE[s.jt].pill}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${JOIN_STYLE[s.jt].dot}`} />
-                        {s.name}: {s.count}
-                      </div>
-                    ))}
-                    {pk.total === 0 && (
-                      <span className="text-xs text-slate-400 italic">No attendance yet</span>
-                    )}
-                  </div>
-
-                  {/* Progress bar */}
-                  {pk.trm > 0 && (
-                    <div className="mb-4">
-                      <div className="flex justify-between text-[10px] text-slate-400 mb-1">
-                        <span>Attendance rate</span>
-                        <span>{Math.round((pk.total / pk.trm) * 100)}%</span>
-                      </div>
-                      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.min(100, Math.round((pk.total / pk.trm) * 100))}%`,
-                            background: EKKLESIA_COLORS[i],
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* View Attendees button */}
-                  <button
-                    type="button"
-                    onClick={() => setModalKampo(pk)}
-                    disabled={pk.total === 0}
-                    className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-secondary/30 hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition"
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {perKampoSummary.map((pk, i) => {
+                const rate = pk.trm > 0 ? Math.round((pk.total / pk.trm) * 100) : null
+                const KAMPO_COLORS = ['#6366f1', '#22c55e', '#f59e0b']
+                return (
+                  <div
+                    key={pk.kampo.id}
+                    className="bg-white border border-slate-200 rounded-custom p-5 shadow-sm"
                   >
-                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    {pk.total === 0 ? 'No attendees' : `View ${pk.total} Attendee${pk.total !== 1 ? 's' : ''}`}
-                  </button>
-                </div>
-              ))}
+                    {/* Kampo header */}
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ background: KAMPO_COLORS[i] }} />
+                        <div className="font-bold text-slate-900 text-sm">{pk.kampo.name}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-black text-slate-900">{pk.total}</div>
+                        <div className="text-[11px] text-slate-400">of {pk.trm} TRM</div>
+                      </div>
+                    </div>
+
+                    {/* Ekklesia sub-totals */}
+                    <div className="space-y-1 mb-3">
+                      {pk.ekks.map(e => {
+                        const eRows = rows.filter(r => normalizeEkklesiaId(r) === e.id)
+                        return (
+                          <div key={e.id} className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500">{e.name}</span>
+                            <span className="font-bold text-slate-800">{eRows.length}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Join-type pills */}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {[
+                        { name: 'FTF',    count: pk.ftf,    jt: 'Face to Face' },
+                        { name: 'Online', count: pk.online, jt: 'Online'       },
+                        { name: 'SVJ',    count: pk.svj,    jt: 'SVJ'          },
+                      ].map(s => (
+                        <span key={s.name}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${JOIN_STYLE[s.jt].pill}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${JOIN_STYLE[s.jt].dot}`} />
+                          {s.name}: {s.count}
+                        </span>
+                      ))}
+                      {pk.total === 0 && <span className="text-xs text-slate-400 italic">No attendance yet</span>}
+                    </div>
+
+                    {/* Progress bar */}
+                    {rate !== null && (
+                      <div className="mb-3">
+                        <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                          <span>Attendance rate</span>
+                          <span className={rate >= 75 ? 'text-emerald-600 font-bold' : rate >= 50 ? 'text-amber-600 font-bold' : 'text-red-500 font-bold'}>
+                            {rate}%
+                          </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min(rate, 100)}%`, background: KAMPO_COLORS[i] }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Drill-down button */}
+                    <button
+                      type="button"
+                      onClick={() => setKampoFilter(pk.kampo.id)}
+                      className="w-full inline-flex items-center justify-center gap-1.5 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-secondary/30 hover:text-secondary transition"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                      View {pk.kampo.name} breakdown
+                    </button>
+                  </div>
+                )
+              })}
             </div>
           )}
 
-          {/* ── Single-kampo attendee tiles ────────────────────────────── */}
-          {kampoFilter !== 'all' && (
+          {/* ════════════════════════════════════════════════════
+              VIEW B: Kampo selected → per-ekklesia breakdown
+          ════════════════════════════════════════════════════ */}
+          {filterKampo && (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {perEkklesiaInKampo.map((pe, i) => {
+                  const rate = pe.trm > 0 ? Math.round((pe.total / pe.trm) * 100) : null
+                  return (
+                    <div key={pe.ekklesia.id} className="bg-white border border-slate-200 rounded-custom p-5 shadow-sm">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-3 h-3 rounded-full shrink-0" style={{ background: EKKLESIA_COLORS[i] }} />
+                          <div className="font-bold text-slate-900 text-sm">{pe.ekklesia.name}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-black text-slate-900">{pe.total}</div>
+                          <div className="text-[11px] text-slate-400">of {pe.trm} TRM</div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {[
+                          { name: 'FTF',    count: pe.ftf,    jt: 'Face to Face' },
+                          { name: 'Online', count: pe.online, jt: 'Online'       },
+                          { name: 'SVJ',    count: pe.svj,    jt: 'SVJ'          },
+                        ].map(s => (
+                          <span key={s.name}
+                            className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold ${JOIN_STYLE[s.jt].pill}`}
+                          >
+                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${JOIN_STYLE[s.jt].dot}`} />
+                            {s.name}: {s.count}
+                          </span>
+                        ))}
+                        {pe.total === 0 && <span className="text-xs text-slate-400 italic">No attendance yet</span>}
+                      </div>
+
+                      {rate !== null && (
+                        <div className="mb-3">
+                          <div className="flex justify-between text-[10px] text-slate-400 mb-1">
+                            <span>Attendance rate</span>
+                            <span className={rate >= 75 ? 'text-emerald-600 font-bold' : rate >= 50 ? 'text-amber-600 font-bold' : 'text-red-500 font-bold'}>
+                              {rate}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${rate >= 75 ? 'bg-emerald-500' : rate >= 50 ? 'bg-amber-400' : 'bg-red-400'}`}
+                              style={{ width: `${Math.min(rate, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setModalKampo({ kampo: pe.ekklesia, rows: pe.rows })}
+                        disabled={pe.total === 0}
+                        className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:border-secondary/30 hover:text-secondary disabled:opacity-40 disabled:cursor-not-allowed transition"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        {pe.total === 0 ? 'No attendees' : `View ${pe.total} Attendee${pe.total !== 1 ? 's' : ''}`}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Combined attendee tiles for entire kampo */}
+              {attendeeList.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <div className="font-bold text-slate-900">All Attendees — {filterKampo.name}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">Combined from all ekklesias in this kampo</div>
+                    </div>
+                    <div className="text-xs text-slate-500">{attendeeList.length} total</div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {attendeeList.map(r => {
+                      const jt    = r.join_type || 'Face to Face'
+                      const style = JOIN_STYLE[jt] || JOIN_STYLE['Face to Face']
+                      const short = jt === 'Face to Face' ? 'FTF' : jt
+                      const eid   = normalizeEkklesiaId(r)
+                      const ekk   = EKKLESIAS.find(e => e.id === eid)
+                      return (
+                        <div key={r.member_id || `${r.member_name}-${r.join_type}`}
+                          className="border border-slate-200 rounded-xl p-3 text-center hover:border-secondary/30 hover:bg-secondary/5 transition"
+                        >
+                          <img className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-slate-200"
+                            src={avatarUrl(r.member_id)} alt={r.member_name} />
+                          <div className="text-xs font-semibold text-slate-900 truncate">{initialsShortName(r.member_name || '')}</div>
+                          {ekk && <div className="text-[10px] text-slate-400 mt-0.5 truncate">{ekk.name}</div>}
+                          <div className={`mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${style.pill}`}>
+                            <span className={`w-1 h-1 rounded-full shrink-0 ${style.dot}`} />{short}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ════════════════════════════════════════════════════
+              VIEW C: Ekklesia selected → attendee tiles
+          ════════════════════════════════════════════════════ */}
+          {filterEkk && (
             <div className="bg-white border border-slate-200 rounded-custom p-4 sm:p-6 shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <div className="font-bold text-slate-900">Attendees</div>
-                <div className="text-xs text-slate-500">
-                  {attendeeList.length} record{attendeeList.length !== 1 ? 's' : ''}
+                <div>
+                  <div className="font-bold text-slate-900">Attendees — {filterEkk.name}</div>
+                  <div className="text-xs text-slate-400 mt-0.5">
+                    {KAMPOS.find(k => k.id === filterEkk.kampoId)?.name}
+                  </div>
                 </div>
+                <div className="text-xs text-slate-500">{attendeeList.length} record{attendeeList.length !== 1 ? 's' : ''}</div>
               </div>
 
               {attendeeList.length === 0 ? (
                 <div className="py-10 text-center text-slate-400 text-sm">
-                  No attendance recorded for this kampo on {date}.
+                  No attendance recorded for {filterEkk.name} on {date}.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -435,21 +631,14 @@ export default function AdminAttendanceMonitor() {
                     const style = JOIN_STYLE[jt] || JOIN_STYLE['Face to Face']
                     const short = jt === 'Face to Face' ? 'FTF' : jt
                     return (
-                      <div
-                        key={r.member_id || `${r.member_name}-${r.join_type}`}
+                      <div key={r.member_id || `${r.member_name}-${r.join_type}`}
                         className="border border-slate-200 rounded-xl p-3 text-center hover:border-secondary/30 hover:bg-secondary/5 transition"
                       >
-                        <img
-                          className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-slate-200"
-                          src={avatarUrl(r.member_id)}
-                          alt={r.member_name}
-                        />
-                        <div className="text-xs font-semibold text-slate-900 truncate">
-                          {initialsShortName(r.member_name || '')}
-                        </div>
+                        <img className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-slate-200"
+                          src={avatarUrl(r.member_id)} alt={r.member_name} />
+                        <div className="text-xs font-semibold text-slate-900 truncate">{initialsShortName(r.member_name || '')}</div>
                         <div className={`mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-bold ${style.pill}`}>
-                          <span className={`w-1 h-1 rounded-full shrink-0 ${style.dot}`} />
-                          {short}
+                          <span className={`w-1 h-1 rounded-full shrink-0 ${style.dot}`} />{short}
                         </div>
                       </div>
                     )
