@@ -42,15 +42,16 @@ export default function AttendanceKiosk({
   }, [attendance, worshipDate])
 
   const quickTotals = useMemo(() => {
-    let overall = 0, ftf = 0, online = 0, svj = 0
+    let overall = 0, ftf = 0, online = 0, svj = 0, visitors = 0
     attendance.forEach(r => {
       if (r.dateISO !== worshipDate) return
       overall++
+      if (r.isVisitor) visitors++
       if (r.joinType === 'Face to Face') ftf++
       else if (r.joinType === 'Online')  online++
       else if (r.joinType === 'SVJ')     svj++
     })
-    return { overall, ftf, online, svj }
+    return { overall, ftf, online, svj, visitors }
   }, [attendance, worshipDate])
 
   const sortedMembers = useMemo(() =>
@@ -168,7 +169,7 @@ export default function AttendanceKiosk({
               </p>
 
               {/* Live counters */}
-              <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-2 text-center text-xs sm:text-sm">
+              <div className="mt-4 grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs sm:text-sm">
                 <div className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2">
                   <div className="text-slate-500">Total today</div>
                   <div className="text-lg sm:text-xl font-extrabold text-slate-900">
@@ -193,7 +194,13 @@ export default function AttendanceKiosk({
                     {isLoading ? '…' : quickTotals.svj}
                   </div>
                 </div>
-                <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-3 py-2 col-span-3 sm:col-span-1">
+                <div className="rounded-lg border border-teal-200 bg-teal-50/70 px-3 py-2">
+                  <div className="text-teal-600 font-semibold">Visitors</div>
+                  <div className="text-lg sm:text-xl font-extrabold text-teal-700">
+                    {isLoading ? '…' : quickTotals.visitors}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-violet-200 bg-violet-50/70 px-3 py-2">
                   <div className="text-violet-600 font-semibold">TRM</div>
                   <div className="text-lg sm:text-xl font-extrabold text-violet-700">
                     {membersLoading ? '…' : members.length}
