@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { initialsShortName, avatarUrl } from '../utils/helpers'
 import { uploadMemberPhoto } from '../lib/membersService'
+import { KAMPOS, EKKLESIAS } from '../constants/kampos'
 import ConfirmDialog from './ConfirmDialog'
 
 const EMPTY_FORM = { name: '', spiritualName: '', gender: 'male', isVisitor: false, img: '' }
@@ -211,8 +212,127 @@ function MemberFormModal({ editingMember, onClose, onAdd, onUpdate }) {
   )
 }
 
+// ── Transfer Modal ────────────────────────────────────────────────────────────
+function TransferModal({ member, currentEkklesiaId, onClose, onTransfer }) {
+  const [selectedId, setSelectedId] = useState('')
+  const [transferring, setTransferring] = useState(false)
+  const [error, setError] = useState('')
+
+  const otherEkklesias = EKKLESIAS.filter(e => e.id !== currentEkklesiaId)
+
+  async function handleConfirm() {
+    if (!selectedId) return
+    setTransferring(true)
+    setError('')
+    try {
+      await onTransfer(member.id, selectedId)
+      onClose()
+    } catch (err) {
+      setError(err.message || 'Transfer failed.')
+    } finally {
+      setTransferring(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+
+      {/* Panel */}
+      <div className="relative w-full max-w-sm rounded-xl border border-slate-200 bg-white shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+          <div>
+            <div className="text-base font-bold text-slate-900">Transfer Member</div>
+            <div className="text-xs text-slate-500 mt-0.5 truncate max-w-[200px]">
+              Moving: <span className="font-semibold text-slate-700">{member.name}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-8 w-8 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 flex items-center justify-center transition"
+            aria-label="Close"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 max-h-[60dvh] overflow-y-auto">
+          <p className="text-sm text-slate-500 mb-3">Select the ekklesia to transfer this member to:</p>
+
+          {error && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{error}</div>
+          )}
+
+          <div className="space-y-4">
+            {KAMPOS.map(kampo => {
+              const ekklesias = otherEkklesias.filter(e => e.kampoId === kampo.id)
+              if (!ekklesias.length) return null
+              return (
+                <div key={kampo.id}>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-1.5">
+                    {kampo.name}
+                  </div>
+                  <div className="space-y-1">
+                    {ekklesias.map(e => (
+                      <label
+                        key={e.id}
+                        className={[
+                          'flex items-center gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition',
+                          selectedId === e.id
+                            ? 'border-primary bg-primary/5 text-primary'
+                            : 'border-slate-200 hover:bg-slate-50 text-slate-700',
+                        ].join(' ')}
+                      >
+                        <input
+                          type="radio"
+                          name="ekklesia"
+                          value={e.id}
+                          checked={selectedId === e.id}
+                          onChange={() => setSelectedId(e.id)}
+                          className="accent-primary"
+                        />
+                        <span className="text-sm font-semibold">{e.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 pb-5 pt-3 flex gap-2 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={transferring}
+            className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={!selectedId || transferring}
+            className="flex-1 rounded-lg bg-primary text-white px-3 py-2 text-sm font-semibold shadow-sm disabled:opacity-50 transition"
+          >
+            {transferring ? 'Transferring…' : 'Transfer'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
-export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
+export default function ManageMembers({ members, onAdd, onUpdate, onDelete, onTransfer, currentEkklesiaId }) {
   const [manageQuery,    setManageQuery]    = useState('')
   const [modalOpen,      setModalOpen]      = useState(false)
   const [editingMember,  setEditingMember]  = useState(null)
@@ -221,6 +341,7 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
   const [selected,       setSelected]       = useState(new Set()) // bulk select
   const [bulkConfirm,    setBulkConfirm]    = useState(false)
   const [bulkDeleting,   setBulkDeleting]   = useState(false)
+  const [transferTarget, setTransferTarget] = useState(null)   // transfer modal
 
   const filtered = useMemo(() => {
     const q = manageQuery.trim().toLowerCase()
@@ -424,6 +545,15 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
                     >
                       Edit
                     </button>
+                    {onTransfer && (
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 text-sm rounded-lg border border-blue-200 text-blue-600 hover:bg-blue-50 transition"
+                        onClick={() => setTransferTarget(m)}
+                      >
+                        Transfer
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="px-3 py-1.5 text-sm rounded-lg border border-secondary/30 text-secondary hover:bg-secondary/5 transition"
@@ -477,6 +607,16 @@ export default function ManageMembers({ members, onAdd, onUpdate, onDelete }) {
         danger
         busy={bulkDeleting}
       />
+
+      {/* ── Transfer modal ── */}
+      {transferTarget && (
+        <TransferModal
+          member={transferTarget}
+          currentEkklesiaId={currentEkklesiaId}
+          onClose={() => setTransferTarget(null)}
+          onTransfer={onTransfer}
+        />
+      )}
     </main>
   )
 }

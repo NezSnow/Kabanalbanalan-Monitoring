@@ -95,7 +95,7 @@ function AttendeesModal({ kampo, attendees, onClose }) {
                 const short  = jt === 'Face to Face' ? 'FTF' : jt
                 return (
                   <div
-                    key={r.member_id || `${r.member_name}-${r.join_type}`}
+                    key={r.id || r.member_id || `${r.member_name}-${r.join_type}`}
                     className="border border-slate-200 rounded-xl p-3 text-center hover:border-secondary/30 hover:bg-secondary/5 transition"
                   >
                     <img
@@ -586,7 +586,7 @@ export default function AdminAttendanceMonitor() {
                       const eid   = normalizeEkklesiaId(r)
                       const ekk   = EKKLESIAS.find(e => e.id === eid)
                       return (
-                        <div key={r.member_id || `${r.member_name}-${r.join_type}`}
+                        <div key={r.id || r.member_id || `${r.member_name}-${r.join_type}`}
                           className="border border-slate-200 rounded-xl p-3 text-center hover:border-secondary/30 hover:bg-secondary/5 transition"
                         >
                           <img className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-slate-200"
@@ -631,7 +631,7 @@ export default function AdminAttendanceMonitor() {
                     const style = JOIN_STYLE[jt] || JOIN_STYLE['Face to Face']
                     const short = jt === 'Face to Face' ? 'FTF' : jt
                     return (
-                      <div key={r.member_id || `${r.member_name}-${r.join_type}`}
+                      <div key={r.id || r.member_id || `${r.member_name}-${r.join_type}`}
                         className="border border-slate-200 rounded-xl p-3 text-center hover:border-secondary/30 hover:bg-secondary/5 transition"
                       >
                         <img className="w-12 h-12 rounded-full object-cover mx-auto mb-2 border border-slate-200"

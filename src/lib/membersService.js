@@ -139,6 +139,31 @@ export async function deleteMember(id, kampoId) {
 }
 
 /**
+ * Transfer a member to a different ekklesia by updating their kampo_id.
+ */
+export async function transferMember(id, toKampoId) {
+  const toKampoName = EKKLESIA_NAME_BY_ID[toKampoId] || ''
+
+  const byId = await supabase
+    .from('members')
+    .update({ kampo_id: toKampoId, kampo: toKampoName })
+    .eq('id', id)
+    .select()
+    .single()
+  if (!byId.error) return toMember(byId.data)
+  if (!isMissingKampoIdColumn(byId.error)) throw byId.error
+
+  const byName = await supabase
+    .from('members')
+    .update({ kampo: toKampoName })
+    .eq('id', id)
+    .select()
+    .single()
+  if (byName.error) throw byName.error
+  return toMember(byName.data)
+}
+
+/**
  * Upload a photo File to Supabase Storage bucket "member-photos".
  * Returns the public URL of the uploaded file.
  */

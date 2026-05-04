@@ -38,7 +38,7 @@ export async function fetchAttendanceForDateRange(startDate, endDate) {
 export async function fetchAttendanceByDateAllKampos(dateISO) {
   const { data, error } = await supabase
     .from('attendance')
-    .select('kampo_id, kampo, join_type, member_id, member_name')
+    .select('id, kampo_id, kampo, join_type, member_id, member_name')
     .eq('date_iso', dateISO)
     .order('kampo_id', { ascending: true })
 

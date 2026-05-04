@@ -8,6 +8,7 @@ import {
   insertMember,
   updateMember as updateMemberSvc,
   deleteMember as deleteMemberSvc,
+  transferMember as transferMemberSvc,
 } from './lib/membersService'
 import { fetchAllAttendance, insertAttendance } from './lib/attendanceService'
 import { toISODate, formatHeaderTime } from './utils/helpers'
@@ -89,6 +90,11 @@ export default function App({ onLogout }) {
 
   async function handleDeleteMember(id) {
     await deleteMemberSvc(id, selectedKampoId)
+    setMembers(prev => prev.filter(m => m.id !== id))
+  }
+
+  async function handleTransferMember(id, toEkklesiaId) {
+    await transferMemberSvc(id, toEkklesiaId)
     setMembers(prev => prev.filter(m => m.id !== id))
   }
 
@@ -192,6 +198,8 @@ export default function App({ onLogout }) {
               onAdd={handleAddMember}
               onUpdate={handleUpdateMember}
               onDelete={handleDeleteMember}
+              onTransfer={handleTransferMember}
+              currentEkklesiaId={selectedKampoId}
             />
           )}
 
